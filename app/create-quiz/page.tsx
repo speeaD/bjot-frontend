@@ -6,7 +6,34 @@ import QuizSettings from "../componets/QuizSettings";
 import QuestionsSettings from "../componets/QuestionsSettings";
 
 export default function CreateQuiz() {
-    const [activeTab, setActiveTab] = useState('details');
+    const [activeTab, setActiveTab] = useState<'details' | 'questions'>('details');
+
+    const [settings, setSettings] = useState({
+        coverImage: '',
+        title: '',
+        description: '',
+        instructions: '',
+        isQuizChallenge: false,
+        duration: { hours: 0, minutes: 0, seconds: 0 },
+        shuffleQuestions: true,
+        multipleAttempts: true,
+        requireLogin: true,
+        permitLoseFocus: true,
+        viewAnswer: true,
+        viewResults: true,
+        displayCalculator: false
+    });
+
+    const [questions, setQuestions] = useState<Question[]>([
+    {
+      type: 'multiple-choice',
+      question: '',
+      options: ['', '', '', ''],
+      correctAnswer: '',
+      points: 1,
+      order: 1
+    }
+  ]);
     return (
         <div className="min-h-screen bg-gray-50">
             {/* Header */}
@@ -32,24 +59,52 @@ export default function CreateQuiz() {
                         <button
                             onClick={() => setActiveTab('details')}
                             className={`w-full px-4 py-4 text-left font-semibold rounded-lg my-1  ${activeTab === 'details'
-                                    ? 'bg-blue-bg text-white'
-                                    : 'text-gray-700 hover:bg-gray-50'
+                                ? 'bg-blue-bg text-white'
+                                : 'text-gray-700 hover:bg-gray-50'
                                 }`}
                         >Quiz Details</button>
                         <button
                             onClick={() => setActiveTab('questions')}
                             className={`w-full px-4 py-4 text-left font-semibold rounded-lg my-1 ${activeTab === 'questions'
-                                    ? 'bg-blue-bg text-white'
-                                    : 'text-gray-700 hover:bg-gray-50'
+                                ? 'bg-blue-bg text-white'
+                                : 'text-gray-700 hover:bg-gray-50'
                                 }`}
                         >Questions</button>
                     </div>
                     <div className="col-span-10">
                         {activeTab === 'details' && (
-                            <QuizSettings />
+                            <><QuizSettings
+                                settings={settings}
+                                onSettingsChange={setSettings}
+                            />
+                                <button className="px-6 py-2 my-6 bg-blue-bg text-white rounded-lg font-medium hover:bg-indigo-700">
+                                    Next
+                                </button></>
+
                         )}
                         {activeTab === 'questions' && (
-                            <QuestionsSettings />
+                            <><QuestionsSettings
+                                questions={questions}
+                                onQuestionsChange={setQuestions}
+                            />
+                                <div className="flex gap-4 mt-6">
+                                    <button
+                                        type="button"
+                                        onClick={() => setActiveTab('details')}
+                                        className="px-6 py-2 border-2 border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50"
+                                    >
+                                        Back
+                                    </button>
+                                    {/* <button
+                                        type="button"
+                                        onClick={handleSubmit}
+                                        disabled={isSubmitting}
+                                        className="px-6 py-2 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 disabled:opacity-50"
+                                    >
+                                        {isSubmitting ? 'Creating Quiz...' : 'Create Quiz'}
+                                    </button> */}
+                                </div>
+                            </>
                         )}
                     </div>
                 </div>

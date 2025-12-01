@@ -1,5 +1,4 @@
-export default function TakeQuizPage({ params }: { params: { slug: string } }) {
-    const { slug } = params;
+export default function TakeQuizPage({ }: { params: { slug: string } }) {
     
     return (
         <></>

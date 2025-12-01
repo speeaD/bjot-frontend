@@ -1,49 +1,47 @@
-'use client';
-
-import { useState } from "react";
 import ToggleButton from "./ToggleButton";
 
-export default function QuizSettings() {
-    const [visibility, setVisibility] = useState('public');
-    const [shuffleQuestions, setShuffleQuestions] = useState(true);
-    const [multipleAttempts, setMultipleAttempts] = useState(true);
-    const [requireLogin, setRequireLogin] = useState(true);
-    const [permitLoseFocus, setPermitLoseFocus] = useState(true);
-    const [allowViewAnswer, setAllowViewAnswer] = useState(true);
-    const [allowViewResult, setAllowViewResult] = useState(true);
-    const [displayCalculator, setDisplayCalculator] = useState(true);
-    const [isChallenge, setIsChallenge] = useState(false);
-    const [hours, setHours] = useState(0);
-    const [minutes, setMinutes] = useState(0);
-    const [seconds, setSeconds] = useState(0);
+interface QuizSettingsProps {
+    settings: QuizSettings;
+    onSettingsChange: (settings: QuizSettings) => void;
+}
+export function ToggleSwitch({ value, onChange } : { value: boolean; onChange: (v: boolean) => void }) {
+    return (
+        <div className="flex items-center">
+            <span className="mr-3 font-semibold text-gray-700 text-sm">
+                {value ? 'Yes' : 'No'}
+            </span>
+            <button
+                onClick={() => onChange(!value)}
+                className={`w-12 h-6 rounded-full transition-colors ${
+                    value ? 'bg-indigo-600' : 'bg-gray-300'
+                }`}
+            >
+                <div
+                    className={`w-5 h-5 bg-white rounded-full transition-transform ${
+                        value ? 'translate-x-6' : 'translate-x-1'
+                    }`}
+                />
+            </button>
+        </div>
+    );
+}
+
+export default function QuizSettings({ settings, onSettingsChange } : QuizSettingsProps) {
+    const updateSetting = <K extends keyof QuizSettings>(key: K, value: QuizSettings[K]): void => {
+        onSettingsChange({ ...settings, [key]: value });
+    };
+
+    const updateDuration = (field: keyof QuizSettings['duration'], value: number): void => {
+        onSettingsChange({
+            ...settings,
+            duration: { ...settings.duration, [field]: value }
+        });
+    };
+
+    
+
     return (
         <div className="space-y-4">
-            {/* Public/Private Toggle */}
-            <div className="bg-white rounded-lg shadow p-6">
-                <div className="flex border-b border-gray-200">
-                    <button
-                        onClick={() => setVisibility('public')}
-                        className={`flex-1 pb-3 font-semibold ${visibility === 'public'
-                                ? 'text-green-600 border-b-4 border-green-600'
-                                : 'text-gray-500'
-                            }`}
-                    >
-                        Public
-                    </button>
-                    <button
-                        onClick={() => setVisibility('private')}
-                        className={`flex-1 pb-3 font-semibold ${visibility === 'private'
-                                ? 'text-green-600 border-b-4 border-green-600'
-                                : 'text-gray-500'
-                            }`}
-                    >
-                        Private
-                    </button>
-                </div>
-                <p className="mt-6 text-gray-600 text-center">
-                    If you create a public quiz, anyone would be able to search and find your quiz. You can change this settings later.
-                </p>
-            </div>
             {/* Cover Image */}
             <div className="bg-white rounded-lg shadow p-4">
                 <div className="border-2 border-dashed border-gray-300 rounded-lg p-12 text-center">
@@ -68,6 +66,8 @@ export default function QuizSettings() {
                 </label>
                 <input
                     type="text"
+                    value={settings.title}
+                    onChange={(e) => updateSetting('title', e.target.value)}
                     placeholder="Make it short and simple."
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 />
@@ -81,17 +81,8 @@ export default function QuizSettings() {
                             If you make this quiz a challenge, people can participate to win a prize you set on the quiz
                         </p>
                     </div>
-                    <div className="flex items-center">
-                        <span className="mr-3 font-semibold text-gray-700">No</span>
-                        <button
-                            onClick={() => setIsChallenge(!isChallenge)}
-                            className={`w-12 h-6 rounded-full transition-colors ${isChallenge ? 'bg-indigo-600' : 'bg-gray-300'
-                                }`}
-                        >
-                            <div className={`w-5 h-5 bg-white rounded-full transition-transform ${isChallenge ? 'translate-x-6' : 'translate-x-1'
-                                }`} />
-                        </button>
-                    </div>
+                    <ToggleSwitch value={settings.isQuizChallenge || false} 
+                        onChange={(val) => updateSetting('isQuizChallenge', val)} />
                 </div>
             </div>
             {/* Description */}
@@ -100,6 +91,8 @@ export default function QuizSettings() {
                     Description <span className="text-xs font-normal text-gray-500">OPTIONAL</span>
                 </label>
                 <textarea
+                    value={settings.description}
+                    onChange={(e) => updateSetting('description', e.target.value)}
                     placeholder="Add a short description"
                     rows={4}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
@@ -112,6 +105,8 @@ export default function QuizSettings() {
                     Instruction <span className="text-xs font-normal text-gray-500">OPTIONAL</span>
                 </label>
                 <textarea
+                    value={settings.instructions || ''}
+                    onChange={(e) => updateSetting('instructions', e.target.value)}
                     placeholder="Tell people how you want them to answer the quiz"
                     rows={4}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
@@ -127,8 +122,8 @@ export default function QuizSettings() {
                 <div className="flex gap-4">
                     <div>
                         <select
-                            value={hours}
-                            onChange={(e) => setHours(Number(e.target.value))}
+                            value={settings.duration.hours}
+                            onChange={(e) => updateDuration('hours', Number(e.target.value))}
                             className="px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 w-24"
                         >
                             {[...Array(24)].map((_, i) => (
@@ -139,8 +134,8 @@ export default function QuizSettings() {
                     </div>
                     <div>
                         <select
-                            value={minutes}
-                            onChange={(e) => setMinutes(Number(e.target.value))}
+                            value={settings.duration.minutes}
+                            onChange={(e) => updateDuration('minutes', Number(e.target.value))}
                             className="px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 w-24"
                         >
                             {[...Array(60)].map((_, i) => (
@@ -151,8 +146,8 @@ export default function QuizSettings() {
                     </div>
                     <div>
                         <select
-                            value={seconds}
-                            onChange={(e) => setSeconds(Number(e.target.value))}
+                            value={settings.duration.seconds}
+                            onChange={(e) => updateDuration('seconds', Number(e.target.value))}
                             className="px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 w-24"
                         >
                             {[...Array(60)].map((_, i) => (
@@ -165,41 +160,38 @@ export default function QuizSettings() {
             </div>
             {/* Quiz Settings */}
             <div className="bg-white rounded-lg shadow p-6 space-y-6">
-                <div>
-                    <h3 className="font-semibold text-gray-800 text-sm mb-3">Shuffle Questions And Answers?</h3>
-                    <ToggleButton value={shuffleQuestions} onChange={setShuffleQuestions} />
-                </div>
+               
 
                 <div>
                     <h3 className="font-semibold text-gray-800 text-sm mb-3">Allow People Attempt This Quiz Multiple Times?</h3>
-                    <ToggleButton value={multipleAttempts} onChange={setMultipleAttempts} />
-                </div>
-
-                <div>
-                    <h3 className="font-semibold text-gray-800 text-sm mb-3">Ensure People Signup/Login To Attempt Quiz?</h3>
-                    <ToggleButton value={requireLogin} onChange={setRequireLogin} />
+                    <ToggleButton value={settings.multipleAttempts || false} 
+                        onChange={(val) => updateSetting('multipleAttempts', val)}  />
                 </div>
 
                 <div>
                     <h3 className="font-semibold text-gray-800 text-sm mb-3">Permit Users To Lose Focus?</h3>
-                    <ToggleButton value={permitLoseFocus} onChange={setPermitLoseFocus} />
+                    <ToggleButton value={settings.permitLoseFocus || false} onChange={(val) => updateSetting('permitLoseFocus', val)} />
                 </div>
 
                 <div>
                     <h3 className="font-semibold text-gray-800 text-sm mb-3">Allow Users To View Answer?</h3>
-                    <ToggleButton value={allowViewAnswer} onChange={setAllowViewAnswer} />
+                    <ToggleButton value={settings.viewAnswer || false} 
+                        onChange={(val) => updateSetting('viewAnswer', val)}  />
                 </div>
 
                 <div>
                     <h3 className="font-semibold text-gray-800 text-sm mb-3">Allow Users To See Result?</h3>
-                    <ToggleButton value={allowViewResult} onChange={setAllowViewResult} />
+                    <ToggleButton value={settings.viewResults || false} 
+                        onChange={(val) => updateSetting('viewResults', val)} />
                 </div>
 
                 <div>
                     <h3 className="font-semibold text-gray-800 text-sm mb-3">Display Calculator</h3>
-                    <ToggleButton value={displayCalculator} onChange={setDisplayCalculator} />
+                    <ToggleButton value={settings.displayCalculator || false} 
+                        onChange={(val) => updateSetting('displayCalculator', val)}  />
                 </div>
             </div>
+
         </div>
     );
 }
