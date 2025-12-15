@@ -1,3 +1,4 @@
+import { QuizSettings } from "../types/global";
 import ToggleButton from "./ToggleButton";
 
 interface QuizSettingsProps {
@@ -26,7 +27,7 @@ export function ToggleSwitch({ value, onChange } : { value: boolean; onChange: (
     );
 }
 
-export default function QuizSettings({ settings, onSettingsChange } : QuizSettingsProps) {
+export default function QuizSettingsComponent({ settings, onSettingsChange } : QuizSettingsProps) {
     const updateSetting = <K extends keyof QuizSettings>(key: K, value: QuizSettings[K]): void => {
         onSettingsChange({ ...settings, [key]: value });
     };

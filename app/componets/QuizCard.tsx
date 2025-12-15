@@ -1,8 +1,9 @@
 import Image from 'next/image';
+import { QuizSettings, QuizAuthor, QuizDuration } from '../types/global';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 export default function QuizCard({
-    _id, settings, questions, createdBy, isActive, totalPoints, onPlay, onEdit, onDelete
+    settings, questions, createdBy, isActive, totalPoints, onPlay, onEdit, onDelete
 }: { _id: string; settings: QuizSettings; questions: any[]; createdBy: QuizAuthor; isActive: boolean; totalPoints: number; createdAt: string | Date; updatedAt: string | Date; participants?: number; onPlay?: (quizId: string) => void; onEdit?: (quizId: string) => void; onDelete?: (quizId: string) => void; }) {
      const formatDuration = (duration: QuizDuration): string => {
     const parts = [];

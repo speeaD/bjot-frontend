@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 
-const baseUrl: string = process.env.BACKEND_URL || "http://localhost:5000/api";
+const baseUrl: string = process.env.BACKEND_URL || "http://localhost:5004/api";
 
 
 export async function POST(request: NextRequest) {

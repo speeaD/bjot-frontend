@@ -56,3 +56,69 @@ interface ApiResponse {
   message?: string;
   data?: unknown;
 }
+
+export interface QuizTaker {
+  _id: string;
+  email: string;
+  accessCode: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface Answer {
+  questionId: string;
+  questionType: string;
+  answer: string;
+  isCorrect: boolean;
+  pointsAwarded: number;
+  pointsPossible: number;
+}
+
+export interface QuizSubmission {
+  _id: string;
+  quizId: {
+    settings: {
+      title: string;
+    };
+    _id: string;
+  };
+  quizTakerId: QuizTaker;
+  answers: Answer[];
+  startedAt: string;
+  submittedAt: string;
+  timeTaken: number; // in seconds
+  score: number;
+  totalPoints: number;
+  percentage: number;
+  status: string;
+  feedback?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface LeaderboardEntry {
+  quizTakerId: string;
+  email: string;
+  accessCode: string;
+  averageScore: number;
+  totalQuizzes: number;
+  totalPoints: number;
+  rank: number;
+}
+
+export interface QuizAnalytics {
+  totalSubmissions: number;
+  completionRate: number;
+  averageScore: number;
+  averageTimeTaken: number;
+  activeUsers: number;
+  submissionsOverTime: { date: string; count: number }[];
+}
+
+export interface QuestionAnalytics {
+  questionId: string;
+  correctCount: number;
+  incorrectCount: number;
+  skippedCount: number;
+  difficulty: number; // 0-100, higher = more difficult
+}

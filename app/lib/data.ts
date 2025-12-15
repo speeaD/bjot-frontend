@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
+import { ApiResponse, QuizCardProps } from "../types/global";
 
-const baseUrl: string = process.env.BACKEND_URL || "http://localhost:5000";
+const baseUrl: string = process.env.BACKEND_URL || "http://localhost:5004/api";
 const token = (await cookies()).get("auth-token")?.value || "";
 
 export const getQuizzes = async () => {

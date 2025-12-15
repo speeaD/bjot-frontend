@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { Eye, EyeOff, Lock, Mail, Loader2 } from 'lucide-react';
 
 export default function Login() {
-    const backend_url = process.env.BACKEND_URL || 'http://localhost:5000/api';
+    const backend_url = process.env.BACKEND_URL || 'http://localhost:5004/api';
     const [showPassword, setShowPassword] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     const [formData, setFormData] = useState({
