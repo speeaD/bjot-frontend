@@ -1,8 +1,18 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import { useState, useMemo } from "react";
-import { Trophy, Medal, Award, Filter } from "lucide-react";
+import { Trophy, Medal, Award, Filter, Target } from "lucide-react";
 import Sidebar from "../componets/Sidebar";
+
+interface QuestionSetSubmission {
+  questionSetOrder: number;
+  submittedAt: string;
+  score: number;
+  totalPoints: number;
+  percentage: number;
+  orderAnswered: number;
+}
 
 interface LeaderboardEntry {
   rank: number;
@@ -11,6 +21,13 @@ interface LeaderboardEntry {
   averageScore: number;
   totalQuizzes: number;
   totalPoints: number;
+  // Question set specific data
+  questionSetStats?: {
+    averagePercentage: number;
+    bestScore: number;
+    totalAttempts: number;
+    lastAttemptDate: string;
+  };
 }
 
 interface QuizSubmission {
@@ -31,6 +48,7 @@ interface QuizSubmission {
   percentage: number;
   timeTaken: number;
   submittedAt: string;
+  questionSetSubmissions?: QuestionSetSubmission[];
 }
 
 interface Quiz {
@@ -49,6 +67,7 @@ interface Props {
 export default function LeaderboardClient({ submissions, quizzes, initialLeaderboard }: Props) {
   const [viewMode, setViewMode] = useState<"global" | "per-quiz">("global");
   const [selectedQuiz, setSelectedQuiz] = useState<string>("");
+  const [selectedQuestionSet, setSelectedQuestionSet] = useState<number | null>(null);
   const [timeFilter, setTimeFilter] = useState<string>("all-time");
 
   // Calculate leaderboard based on filters
@@ -92,28 +111,91 @@ export default function LeaderboardClient({ submissions, quizzes, initialLeaderb
           totalScore: 0,
           totalQuizzes: 0,
           totalPoints: 0,
+          // Question set tracking
+          questionSetData: {
+            percentages: [],
+            scores: [],
+            attempts: 0,
+            lastAttempt: null,
+          },
         });
       }
       
       const taker = takerMap.get(takerId);
+      
+      // Overall quiz stats
       taker.totalScore += submission.percentage;
       taker.totalQuizzes += 1;
-      taker.totalPoints += submission.score;
+      taker.totalPoints += Math.round((submission.score / submission.totalPoints) * 400);
+      
+      // Question set specific stats
+      if (selectedQuestionSet !== null && submission.questionSetSubmissions) {
+        const questionSetData = submission.questionSetSubmissions.find(
+          qs => qs.questionSetOrder === selectedQuestionSet
+        );
+        
+        if (questionSetData) {
+          taker.questionSetData.percentages.push(questionSetData.percentage);
+          taker.questionSetData.scores.push(questionSetData.score);
+          taker.questionSetData.attempts += 1;
+          
+          const attemptDate = new Date(questionSetData.submittedAt);
+          if (!taker.questionSetData.lastAttempt || attemptDate > new Date(taker.questionSetData.lastAttempt)) {
+            taker.questionSetData.lastAttempt = questionSetData.submittedAt;
+          }
+        }
+      }
     });
     
-    // Calculate average and sort
-    return Array.from(takerMap.values())
-      .map((taker) => ({
-        ...taker,
+    // Calculate averages and prepare leaderboard entries
+    const entries = Array.from(takerMap.values()).map((taker) => {
+      const entry: any = {
+        email: taker.email,
+        accessCode: taker.accessCode,
         averageScore: taker.totalScore / taker.totalQuizzes,
-      }))
-      .sort((a, b) => b.averageScore - a.averageScore)
+        totalQuizzes: taker.totalQuizzes,
+        totalPoints: taker.totalPoints,
+      };
+      
+      // Add question set stats if filtered
+      if (selectedQuestionSet !== null && taker.questionSetData.attempts > 0) {
+        const avgPercentage = taker.questionSetData.percentages.reduce((a: any, b: any) => a + b, 0) / 
+                              taker.questionSetData.percentages.length;
+        const bestScore = Math.max(...taker.questionSetData.scores);
+        
+        entry.questionSetStats = {
+          averagePercentage: avgPercentage,
+          bestScore: bestScore,
+          totalAttempts: taker.questionSetData.attempts,
+          lastAttemptDate: taker.questionSetData.lastAttempt,
+        };
+      }
+      
+      return entry;
+    });
+    
+    // Filter out users with no question set data if filtering by question set
+    const filteredEntries = selectedQuestionSet !== null
+      ? entries.filter(e => e.questionSetStats && e.questionSetStats.totalAttempts > 0)
+      : entries;
+    
+    // Sort based on whether we're filtering by question set
+    const sortedEntries = filteredEntries.sort((a, b) => {
+      if (selectedQuestionSet !== null && a.questionSetStats && b.questionSetStats) {
+        // Sort by best score when filtering by question set
+        return b.questionSetStats.bestScore - a.questionSetStats.bestScore;
+      }
+      return b.averageScore - a.averageScore;
+    });
+    
+    // Return top 50 with ranks
+    return sortedEntries
       .slice(0, 50)
-      .map((taker, index) => ({
-        ...taker,
+      .map((entry, index) => ({
+        ...entry,
         rank: index + 1,
       }));
-  }, [submissions, viewMode, selectedQuiz, timeFilter]);
+  }, [submissions, viewMode, selectedQuiz, selectedQuestionSet, timeFilter]);
 
   const getRankIcon = (rank: number) => {
     if (rank === 1) return <Trophy className="w-6 h-6 text-yellow-500" />;
@@ -127,6 +209,14 @@ export default function LeaderboardClient({ submissions, quizzes, initialLeaderb
     if (rank === 2) return "bg-gray-100 text-gray-800";
     if (rank === 3) return "bg-orange-100 text-orange-800";
     return "bg-blue-100 text-blue-800";
+  };
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric'
+    });
   };
 
   return (
@@ -169,7 +259,7 @@ export default function LeaderboardClient({ submissions, quizzes, initialLeaderb
                     }}
                     className={`px-6 py-2 rounded-lg font-medium transition-colors ${
                       viewMode === "global"
-                        ? "bg-blue-bg text-white"
+                        ? "bg-blue-500 text-white"
                         : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                     }`}
                   >
@@ -179,7 +269,7 @@ export default function LeaderboardClient({ submissions, quizzes, initialLeaderb
                     onClick={() => setViewMode("per-quiz")}
                     className={`px-6 py-2 rounded-lg font-medium transition-colors ${
                       viewMode === "per-quiz"
-                        ? "bg-blue-bg text-white"
+                        ? "bg-blue-500 text-white"
                         : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                     }`}
                   >
@@ -189,19 +279,61 @@ export default function LeaderboardClient({ submissions, quizzes, initialLeaderb
 
                 {/* Quiz Selector (only for per-quiz view) */}
                 {viewMode === "per-quiz" && (
-                  <select
-                    value={selectedQuiz}
-                    onChange={(e) => setSelectedQuiz(e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="">Select a quiz...</option>
-                    {quizzes.map((quiz) => (
-                      <option key={quiz._id} value={quiz._id}>
-                        {quiz.settings.title}
-                      </option>
-                    ))}
-                  </select>
+                  <div className="mb-4">
+                    <select
+                      value={selectedQuiz}
+                      onChange={(e) => setSelectedQuiz(e.target.value)}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="">Select a quiz...</option>
+                      {quizzes.map((quiz) => (
+                        <option key={quiz._id} value={quiz._id}>
+                          {quiz.settings.title}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                 )}
+
+                {/* Question Set Filter Tabs */}
+                <div className="border-t border-gray-200 pt-4 mt-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Target className="w-5 h-5 text-blue-500" />
+                    <span className="text-sm font-medium text-gray-700">
+                      Filter by Question Set:
+                    </span>
+                  </div>
+                  <div className="flex gap-2 flex-wrap">
+                    <button
+                      onClick={() => setSelectedQuestionSet(null)}
+                      className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors ${
+                        selectedQuestionSet === null
+                          ? "bg-blue-500 text-white"
+                          : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                      }`}
+                    >
+                      All Sets
+                    </button>
+                    {[1, 2, 3, 4].map((setNum) => (
+                      <button
+                        key={setNum}
+                        onClick={() => setSelectedQuestionSet(setNum)}
+                        className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors ${
+                          selectedQuestionSet === setNum
+                            ? "bg-blue-500 text-white"
+                            : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                        }`}
+                      >
+                        Set {setNum}
+                      </button>
+                    ))}
+                  </div>
+                  {selectedQuestionSet !== null && (
+                    <div className="mt-2 text-xs text-gray-500">
+                      Showing performance for Question Set {selectedQuestionSet} only
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* Top 3 Podium */}
@@ -222,7 +354,9 @@ export default function LeaderboardClient({ submissions, quizzes, initialLeaderb
                             {leaderboard[1].email}
                           </div>
                           <div className="text-lg font-semibold text-blue-600">
-                            {leaderboard[1].averageScore.toFixed(1)}%
+                            {selectedQuestionSet !== null && leaderboard[1].questionSetStats
+                              ? `${leaderboard[1].questionSetStats.bestScore} pts`
+                              : `${leaderboard[1].averageScore.toFixed(1)}%`}
                           </div>
                         </div>
                         <div className="w-32 h-24 bg-gray-300 rounded-t-lg mt-2" />
@@ -243,7 +377,9 @@ export default function LeaderboardClient({ submissions, quizzes, initialLeaderb
                             {leaderboard[0].email}
                           </div>
                           <div className="text-xl font-semibold text-blue-600">
-                            {leaderboard[0].averageScore.toFixed(1)}%
+                            {selectedQuestionSet !== null && leaderboard[0].questionSetStats
+                              ? `${leaderboard[0].questionSetStats.bestScore} pts`
+                              : `${leaderboard[0].averageScore.toFixed(1)}%`}
                           </div>
                         </div>
                         <div className="w-32 h-32 bg-yellow-400 rounded-t-lg mt-2" />
@@ -264,7 +400,9 @@ export default function LeaderboardClient({ submissions, quizzes, initialLeaderb
                             {leaderboard[2].email}
                           </div>
                           <div className="text-lg font-semibold text-blue-600">
-                            {leaderboard[2].averageScore.toFixed(1)}%
+                            {selectedQuestionSet !== null && leaderboard[2].questionSetStats
+                              ? `${leaderboard[2].questionSetStats.bestScore} pts`
+                              : `${leaderboard[2].averageScore.toFixed(1)}%`}
                           </div>
                         </div>
                         <div className="w-32 h-20 bg-orange-400 rounded-t-lg mt-2" />
@@ -278,6 +416,11 @@ export default function LeaderboardClient({ submissions, quizzes, initialLeaderb
               <div className="p-6">
                 <h3 className="text-lg font-semibold text-gray-800 mb-4">
                   Top 50 Rankings
+                  {selectedQuestionSet !== null && (
+                    <span className="text-sm font-normal text-gray-500 ml-2">
+                      (Question Set {selectedQuestionSet})
+                    </span>
+                  )}
                 </h3>
                 {leaderboard.length > 0 ? (
                   <div className="overflow-x-auto">
@@ -293,15 +436,34 @@ export default function LeaderboardClient({ submissions, quizzes, initialLeaderb
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                             Access Code
                           </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Avg Score
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Quizzes Taken
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Total Points
-                          </th>
+                          {selectedQuestionSet === null ? (
+                            <>
+                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Avg Score
+                              </th>
+                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Quizzes Taken
+                              </th>
+                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Total Points
+                              </th>
+                            </>
+                          ) : (
+                            <>
+                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Best Score
+                              </th>
+                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Avg %
+                              </th>
+                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Attempts
+                              </th>
+                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Last Attempt
+                              </th>
+                            </>
+                          )}
                         </tr>
                       </thead>
                       <tbody className="bg-white divide-y divide-gray-200">
@@ -325,21 +487,50 @@ export default function LeaderboardClient({ submissions, quizzes, initialLeaderb
                                 {entry.accessCode}
                               </code>
                             </td>
-                            <td className="px-6 py-4">
-                              <span
-                                className={`px-3 py-1 rounded-full text-sm font-semibold ${getRankBadge(
-                                  entry.rank
-                                )}`}
-                              >
-                                {entry.averageScore.toFixed(1)}%
-                              </span>
-                            </td>
-                            <td className="px-6 py-4 text-sm text-gray-900">
-                              {entry.totalQuizzes}
-                            </td>
-                            <td className="px-6 py-4 text-sm font-semibold text-green-600">
-                              {entry.totalPoints}
-                            </td>
+                            {selectedQuestionSet === null ? (
+                              <>
+                                <td className="px-6 py-4">
+                                  <span
+                                    className={`px-3 py-1 rounded-full text-sm font-semibold ${getRankBadge(
+                                      entry.rank
+                                    )}`}
+                                  >
+                                    {entry.averageScore.toFixed(1)}%
+                                  </span>
+                                </td>
+                                <td className="px-6 py-4 text-sm text-gray-900">
+                                  {entry.totalQuizzes}
+                                </td>
+                                <td className="px-6 py-4 text-sm font-semibold text-green-600">
+                                  {entry.totalPoints}
+                                </td>
+                              </>
+                            ) : (
+                              <>
+                                <td className="px-6 py-4">
+                                  <span className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm font-semibold">
+                                    {entry.questionSetStats?.bestScore || 0}
+                                  </span>
+                                </td>
+                                <td className="px-6 py-4">
+                                  <span
+                                    className={`px-3 py-1 rounded-full text-sm font-semibold ${getRankBadge(
+                                      entry.rank
+                                    )}`}
+                                  >
+                                    {entry.questionSetStats?.averagePercentage.toFixed(1) || 0}%
+                                  </span>
+                                </td>
+                                <td className="px-6 py-4 text-sm text-gray-900">
+                                  {entry.questionSetStats?.totalAttempts || 0}
+                                </td>
+                                <td className="px-6 py-4 text-sm text-gray-600">
+                                  {entry.questionSetStats?.lastAttemptDate
+                                    ? formatDate(entry.questionSetStats.lastAttemptDate)
+                                    : '-'}
+                                </td>
+                              </>
+                            )}
                           </tr>
                         ))}
                       </tbody>
@@ -350,6 +541,8 @@ export default function LeaderboardClient({ submissions, quizzes, initialLeaderb
                     <p className="text-gray-500">
                       {viewMode === "per-quiz" && !selectedQuiz
                         ? "Please select a quiz to view its leaderboard"
+                        : selectedQuestionSet !== null
+                        ? "No submissions found for the selected question set and filters"
                         : "No submissions found for the selected filters"}
                     </p>
                   </div>

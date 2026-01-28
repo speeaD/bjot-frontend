@@ -2,6 +2,7 @@
 
 import { Trash2, ChevronDown } from "lucide-react";
 import { ChangeEvent, useState } from "react";
+import { Question, QuestionType } from "../types/global";
 
 interface QuestionCardProps {
   question: Question;

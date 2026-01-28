@@ -77,13 +77,13 @@ export default function QuizSettingsComponent({ settings, onSettingsChange } : Q
             <div className="bg-gray-50 rounded-lg p-4">
                 <div className="flex items-center justify-between">
                     <div>
-                        <h3 className="font-semibold text-gray-800 text-lg mb-2">Make quiz a challenge?</h3>
+                        <h3 className="font-semibold text-gray-800 text-lg mb-2">Make quiz open?</h3>
                         <p className="text-gray-600">
-                            If you make this quiz a challenge, people can participate to win a prize you set on the quiz
+                            If you make this quiz a open, Anybody can participate without login.
                         </p>
                     </div>
-                    <ToggleSwitch value={settings.isQuizChallenge || false} 
-                        onChange={(val) => updateSetting('isQuizChallenge', val)} />
+                    <ToggleSwitch value={settings.isOpenQuiz || false} 
+                        onChange={(val) => updateSetting('isOpenQuiz', val)} />
                 </div>
             </div>
             {/* Description */}

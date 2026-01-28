@@ -24,9 +24,48 @@
   }
 }
 
-
 body {
   background: var(--background);
-  /* color: var(--foreground); */
   font-family: var(--font-sans);
+}
+
+/* Custom utility classes for your colors */
+.text-green-bg {
+  color: var(--green-bg);
+}
+
+.bg-green-bg {
+  background-color: var(--green-bg);
+}
+
+.text-blue-bg {
+  color: var(--blue-bg);
+}
+
+.bg-blue-bg {
+  background-color: var(--blue-bg);
+}
+
+.text-green-sec-bg {
+  color: var(--green-sec-bg);
+}
+
+.bg-green-sec-bg {
+  background-color: var(--green-sec-bg);
+}
+
+.hover\:text-blue-bg:hover {
+  color: var(--blue-bg);
+}
+
+.hover\:bg-green-bg:hover {
+  background-color: var(--green-bg);
+}
+
+.border-green-bg {
+  border-color: var(--green-bg);
+}
+
+.border-blue-bg {
+  border-color: var(--blue-bg);
 }

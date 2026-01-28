@@ -3,12 +3,15 @@
 import { Plus, Bot } from "lucide-react";
 import QuestionCard from "./QuestionCard";
 import BulkUpload from "./BulkUpload";
+import { Question, QuizSettings } from "../types/global";
 interface QuestionsSettingsProps {
+    settings: QuizSettings;
+    onSettingsChange: (settings: QuizSettings) => void;
     questions: Question[];
     onQuestionsChange: (questions: Question[]) => void;
 }
 
-export default function QuestionsSettings({ questions, onQuestionsChange }: QuestionsSettingsProps) {
+export default function QuestionsSettings({ questions, onQuestionsChange, settings }: QuestionsSettingsProps) {
     const totalMarks = questions.reduce((sum, q) => sum + (q.points || 0), 0);
 
     const addQuestion = () => {
@@ -94,9 +97,9 @@ export default function QuestionsSettings({ questions, onQuestionsChange }: Ques
             </div>
 
             {/* Import from Spreadsheet */}
-            <BulkUpload />
+            <BulkUpload settings={settings} />
             <div className="text-center">
-                
+
                 <p className="mt-4 text-gray-600">
                     Make sure to upload an .xlsx file in this format{' '}
                     <a href="#" className="text-blue-bg hover:underline">(Download template)</a>

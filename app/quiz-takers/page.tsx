@@ -1,27 +1,23 @@
-import { cookies } from "next/headers";
-import QuizTakersClient from "./QuizTakerClient";
+// app/admin/quiz-takers/page.tsx
+import { cookies } from 'next/headers';
+import { redirect } from 'next/navigation';
+import QuizTakersClient from './QuizTakerClient';
 
-const baseUrl: string = process.env.BACKEND_URL || "http://localhost:5004/api";
+const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:5004/api';
 
-async function getQuizTakers() {
+async function getQuizTakers(token: string) {
   try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get("auth-token")?.value || "";
-    
-    const response = await fetch(`${baseUrl}/admin/quiztakers`, {
+    const response = await fetch(`${BACKEND_URL}/admin/quiztakers`, {
       headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
+        'Authorization': `Bearer ${token}`,
       },
-      credentials: "include",
-      cache: "no-store", // Ensure fresh data
+      cache: 'no-store',
     });
 
     if (!response.ok) {
-      console.error('Failed to fetch quiz takers');
-      return [];
+      throw new Error('Failed to fetch quiz takers');
     }
-    
+
     const data = await response.json();
     return data.quizTakers || [];
   } catch (error) {
@@ -30,25 +26,19 @@ async function getQuizTakers() {
   }
 }
 
-async function getQuizzes() {
+async function getQuizzes(token: string) {
   try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get("auth-token")?.value || "";
-    
-    const response = await fetch(`${baseUrl}/quiz/`, {
+    const response = await fetch(`${BACKEND_URL}/quiz`, {
       headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
+        'Authorization': `Bearer ${token}`,
       },
-      credentials: "include",
-      cache: "no-store",
+      cache: 'no-store',
     });
 
     if (!response.ok) {
-      console.error('Failed to fetch quizzes');
-      return [];
+      throw new Error('Failed to fetch quizzes');
     }
-    
+
     const data = await response.json();
     return data.quizzes || [];
   } catch (error) {
@@ -57,11 +47,47 @@ async function getQuizzes() {
   }
 }
 
+async function getQuestionSets(token: string) {
+  try {
+    const response = await fetch(`${BACKEND_URL}/questionset`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+      cache: 'no-store',
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to fetch question sets');
+    }
+
+    const data = await response.json();
+    return data.questionSets || [];
+  } catch (error) {
+    console.error('Error fetching question sets:', error);
+    return [];
+  }
+}
+
 export default async function QuizTakersPage() {
-  const [quizTakers, quizzes] = await Promise.all([
-    getQuizTakers(),
-    getQuizzes(),
+  const cookieStore = await cookies();
+  const token = cookieStore.get('auth-token')?.value;
+
+  if (!token) {
+    redirect('/admin/login');
+  }
+
+  // Fetch all data in parallel
+  const [quizTakers, quizzes, questionSets] = await Promise.all([
+    getQuizTakers(token),
+    getQuizzes(token),
+    getQuestionSets(token),
   ]);
 
-  return <QuizTakersClient initialQuizTakers={quizTakers} quizzes={quizzes} />;
+  return (
+    <QuizTakersClient 
+      initialQuizTakers={quizTakers} 
+      quizzes={quizzes}
+      questionSets={questionSets}
+    />
+  );
 }

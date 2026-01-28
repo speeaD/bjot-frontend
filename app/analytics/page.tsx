@@ -4,6 +4,29 @@ import AnalyticsClient from "./AnalyticsClient";
 
 const baseUrl: string = process.env.BACKEND_URL || "http://localhost:5004/api";
 
+interface Question {
+  _id: string;
+  type: string;
+  question: string;
+  options?: string[];
+  correctAnswer: string | boolean | string[];
+  points: number;
+}
+
+interface QuestionSet {
+  order: number;
+  questions: Question[];
+}
+
+interface Quiz {
+  _id: string;
+  settings: {
+    title: string;
+  };
+  questionSets?: QuestionSet[];
+  questions?: Question[]; // Legacy support for flat question arrays
+}
+
 interface QuizSubmission {
   _id: string;
   quizId: {
@@ -20,7 +43,7 @@ interface QuizSubmission {
   answers: Array<{
     questionId: string;
     questionType: string;
-    answer: string;
+    answer: string | string[] | boolean;
     isCorrect: boolean;
     pointsAwarded: number;
     pointsPossible: number;
@@ -88,8 +111,60 @@ async function getQuizzes() {
   }
 }
 
+// Helper function to build question map from quizzes
+function buildQuestionMap(quizzes: Quiz[]) {
+  const questionMap = new Map();
+  
+  quizzes.forEach(quiz => {
+    // Handle questionSets structure
+    if (quiz.questionSets && Array.isArray(quiz.questionSets)) {
+      quiz.questionSets.forEach(questionSet => {
+        if (questionSet.questions && Array.isArray(questionSet.questions)) {
+          questionSet.questions.forEach(question => {
+            questionMap.set(question._id, {
+              id: question._id,
+              quizId: quiz._id,
+              quizTitle: quiz.settings?.title || 'Untitled Quiz',
+              questionText: question.question,
+              type: question.type,
+              options: question.options || [],
+              correctAnswer: question.correctAnswer,
+              points: question.points,
+            });
+          });
+        }
+      });
+    }
+    
+    // Handle legacy flat questions array
+    if (quiz.questions && Array.isArray(quiz.questions)) {
+      quiz.questions.forEach(question => {
+        questionMap.set(question._id, {
+          id: question._id,
+          quizId: quiz._id,
+          quizTitle: quiz.settings?.title || 'Untitled Quiz',
+          questionText: question.question,
+          type: question.type,
+          options: question.options || [],
+          correctAnswer: question.correctAnswer,
+          points: question.points,
+        });
+      });
+    }
+  });
+  
+  return questionMap;
+}
+
 // Calculate analytics from submissions
-function calculateAnalytics(submissions: QuizSubmission[], dateRange: string = '30d') {
+function calculateAnalytics(
+  submissions: QuizSubmission[], 
+  quizzes: Quiz[],
+  dateRange: string = '30d'
+) {
+  // Build question map
+  const questionMap = buildQuestionMap(quizzes);
+  
   // Filter by date range
   const now = new Date();
   const filterDate = new Date();
@@ -155,67 +230,124 @@ function calculateAnalytics(submissions: QuizSubmission[], dateRange: string = '
   });
 
   // Quiz Performance
-  const quizMap = new Map();
+  const quizPerformanceMap = new Map();
   filteredSubmissions.forEach(submission => {
     const quizId = submission.quizId._id;
     const quizTitle = submission.quizId.settings?.title || 'Untitled Quiz';
     
-    if (!quizMap.has(quizId)) {
-      quizMap.set(quizId, {
+    if (!quizPerformanceMap.has(quizId)) {
+      quizPerformanceMap.set(quizId, {
         name: quizTitle,
         totalScore: 0,
         attempts: 0,
       });
     }
     
-    const quiz = quizMap.get(quizId);
+    const quiz = quizPerformanceMap.get(quizId);
     quiz.totalScore += submission.percentage;
     quiz.attempts += 1;
   });
   
-  const quizPerformance = Array.from(quizMap.values()).map(quiz => ({
+  const quizPerformance = Array.from(quizPerformanceMap.values()).map(quiz => ({
     name: quiz.name,
     avgScore: Math.round((quiz.totalScore / quiz.attempts) * 10) / 10,
     attempts: quiz.attempts,
   }));
 
-  // Question Analytics (most difficult)
-  const questionMap = new Map();
+  // Question Analytics with detailed tracking
+  const questionStatsMap = new Map();
   
   filteredSubmissions.forEach((submission) => {
     submission.answers.forEach((answer) => {
-      if (!questionMap.has(answer.questionId)) {
-        questionMap.set(answer.questionId, {
-          questionId: answer.questionId,
+      const questionId = answer.questionId;
+      
+      if (!questionStatsMap.has(questionId)) {
+        questionStatsMap.set(questionId, {
+          questionId: questionId,
           correct: 0,
           incorrect: 0,
           skipped: 0,
+          answerCounts: new Map(), // Track how many times each answer was chosen
+          totalAttempts: 0,
         });
       }
       
-      const stats = questionMap.get(answer.questionId);
-      if (answer.answer === '') {
+      const stats = questionStatsMap.get(questionId);
+      stats.totalAttempts += 1;
+      
+      // Track if answer was skipped, correct, or incorrect
+      if (answer.answer === '' || answer.answer === null || answer.answer === undefined) {
         stats.skipped += 1;
-      } else if (answer.isCorrect) {
-        stats.correct += 1;
       } else {
-        stats.incorrect += 1;
+        // Track the actual answer chosen
+        const answerKey = Array.isArray(answer.answer) 
+          ? answer.answer.join(',') 
+          : String(answer.answer);
+        
+        stats.answerCounts.set(
+          answerKey,
+          (stats.answerCounts.get(answerKey) || 0) + 1
+        );
+        
+        if (answer.isCorrect) {
+          stats.correct += 1;
+        } else {
+          stats.incorrect += 1;
+        }
       }
     });
   });
   
-  const difficultQuestions = Array.from(questionMap.values())
-    .map((stats) => {
-      const total = stats.correct + stats.incorrect + stats.skipped;
+  // Build detailed question analytics
+  const difficultQuestions = Array.from(questionStatsMap.entries())
+    .map(([questionId, stats]) => {
+      const questionData = questionMap.get(questionId);
+      const total = stats.totalAttempts;
+      
+      // Find most picked answer
+      let mostPickedAnswer = 'N/A';
+      let mostPickedCount = 0;
+      
+      stats.answerCounts.forEach((count: number, answer: string) => {
+        if (count > mostPickedCount) {
+          mostPickedCount = count;
+          mostPickedAnswer = answer;
+        }
+      });
+      
+      const mostPickedPercentage = total > 0 
+        ? Math.round((mostPickedCount / total) * 100) 
+        : 0;
+      
+      // Format correct answer for display
+      let correctAnswerDisplay = 'N/A';
+      if (questionData) {
+        if (typeof questionData.correctAnswer === 'boolean') {
+          correctAnswerDisplay = questionData.correctAnswer ? 'True' : 'False';
+        } else if (Array.isArray(questionData.correctAnswer)) {
+          correctAnswerDisplay = questionData.correctAnswer.join(', ');
+        } else {
+          correctAnswerDisplay = String(questionData.correctAnswer);
+        }
+      }
+      
       return {
-        id: stats.questionId,
-        text: `Question ${stats.questionId.slice(-6)}`,
+        id: questionId,
+        quizTitle: questionData?.quizTitle || 'Unknown Quiz',
+        questionText: questionData?.questionText || `Question ${questionId.slice(-6)}`,
+        questionType: questionData?.type || 'unknown',
+        options: questionData?.options || [],
+        correctAnswer: correctAnswerDisplay,
         correctRate: total > 0 ? Math.round((stats.correct / total) * 100) : 0,
         incorrectRate: total > 0 ? Math.round((stats.incorrect / total) * 100) : 0,
         skippedRate: total > 0 ? Math.round((stats.skipped / total) * 100) : 0,
         difficulty: total > 0 ? Math.round(((stats.incorrect + stats.skipped) / total) * 100) : 0,
+        totalAttempts: total,
+        mostPickedAnswer: mostPickedAnswer,
+        mostPickedPercentage: mostPickedPercentage,
       };
     })
+    .filter(q => q.totalAttempts > 0) // Only include questions that were actually attempted
     .sort((a, b) => b.difficulty - a.difficulty)
     .slice(0, 10);
 
@@ -241,7 +373,7 @@ export default async function AnalyticsPage() {
   ]);
 
   // Calculate initial analytics (30 days)
-  const initialAnalytics = calculateAnalytics(submissions, '30d');
+  const initialAnalytics = calculateAnalytics(submissions, quizzes, '30d');
 
   return (
     <AnalyticsClient 

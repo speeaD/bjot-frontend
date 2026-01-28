@@ -1,23 +1,33 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-// app/create-quiz/CreateQuizClient.tsx
 'use client';
 
 import { ArrowLeft, Eye } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import QuizSettingsComponent from "../componets/QuizSettings";
-import QuestionsSettings from "../componets/QuestionsSettings";
-import { Question, QuizSettings }  from "../types/global";
+import QuestionSetsSelector from "../componets/QuestionSetsSelector";
+import { QuizSettings }  from "../types/global";
 
-interface CreateQuizClientProps {
-  user: any; // Replace with your User type
+interface QuestionSet {
+  _id: string;
+  title: string;
+  questionCount: number;
+  totalPoints: number;
+  isActive: boolean;
+  createdAt: string;
 }
 
-export default function CreateQuizClient({ user }: CreateQuizClientProps) {
+interface CreateQuizClientProps {
+  user?: any;
+}
+
+export default function CreateQuizClient({ }: CreateQuizClientProps) {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<'details' | 'questions'>('details');
+  const [activeTab, setActiveTab] = useState<'details' | 'question-sets'>('details');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [availableQuestionSets, setAvailableQuestionSets] = useState<QuestionSet[]>([]);
+  const [isLoadingQuestionSets, setIsLoadingQuestionSets] = useState(false);
 
   const [settings, setSettings] = useState<QuizSettings>({
     coverImage: '',
@@ -25,26 +35,49 @@ export default function CreateQuizClient({ user }: CreateQuizClientProps) {
     description: '',
     instructions: '',
     isQuizChallenge: false,
-    duration: { hours: 0, minutes: 0, seconds: 0 },
+    duration: { hours: 0, minutes: 30, seconds: 0 },
     shuffleQuestions: true,
     multipleAttempts: true,
     requireLogin: true,
     permitLoseFocus: true,
     viewAnswer: true,
     viewResults: true,
-    displayCalculator: false
+    displayCalculator: false,
+    isOpenQuiz: false
   });
 
-  const [questions, setQuestions] = useState<Question[]>([
-    {
-      type: 'multiple-choice',
-      question: '',
-      options: ['', '', '', ''],
-      correctAnswer: '',
-      points: 1,
-      order: 1
-    }
+  // Array of exactly 4 question set IDs
+  const [selectedQuestionSetIds, setSelectedQuestionSetIds] = useState<(string | null)[]>([
+    null, null, null, null
   ]);
+
+  // Fetch available question sets
+  useEffect(() => {
+    fetchQuestionSets();
+  }, []);
+
+  const fetchQuestionSets = async () => {
+    try {
+      setIsLoadingQuestionSets(true);
+      const response = await fetch('/api/questionset', {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch question sets');
+      }
+
+      const data = await response.json();
+      setAvailableQuestionSets(data.questionSets || []);
+    } catch (error) {
+      console.error('Error fetching question sets:', error);
+      alert('Failed to load question sets');
+    } finally {
+      setIsLoadingQuestionSets(false);
+    }
+  };
 
   // Validation
   const validateQuizDetails = (): boolean => {
@@ -62,32 +95,21 @@ export default function CreateQuizClient({ user }: CreateQuizClientProps) {
     return Object.keys(newErrors).length === 0;
   };
 
-  const validateQuestions = (): boolean => {
+  const validateQuestionSets = (): boolean => {
     const newErrors: Record<string, string> = {};
 
-    if (questions.length === 0) {
-      newErrors.questions = 'At least one question is required';
+    const selectedCount = selectedQuestionSetIds.filter(id => id !== null).length;
+    console.log('Selected question set IDs:', selectedQuestionSetIds, 'Count:', selectedCount);
+    
+    if (selectedCount !== 4) {
+      newErrors.questionSets = 'You must select exactly 4 question sets';
     }
 
-    questions.forEach((q, index) => {
-      if (!q.question.trim()) {
-        newErrors[`question-${index}`] = `Question ${index + 1} text is required`;
-      }
-
-      if (q.type === 'multiple-choice') {
-        const validOptions = q.options.filter(opt => opt.trim() !== '');
-        if (validOptions.length < 2) {
-          newErrors[`question-${index}-options`] = `Question ${index + 1} must have at least 2 options`;
-        }
-        if (!q.correctAnswer || !q.correctAnswer.trim()) {
-          newErrors[`question-${index}-answer`] = `Question ${index + 1} must have a correct answer selected`;
-        }
-      }
-
-      if (q.points <= 0) {
-        newErrors[`question-${index}-points`] = `Question ${index + 1} must have points greater than 0`;
-      }
-    });
+    // Check for duplicates
+    const uniqueSets = new Set(selectedQuestionSetIds.filter(id => id !== null));
+    if (uniqueSets.size !== selectedCount) {
+      newErrors.questionSets = 'You cannot select the same question set multiple times';
+    }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -95,15 +117,15 @@ export default function CreateQuizClient({ user }: CreateQuizClientProps) {
 
   const handleNext = () => {
     if (validateQuizDetails()) {
-      setActiveTab('questions');
+      setActiveTab('question-sets');
     } else {
       alert('Please fill in all required quiz details');
     }
   };
 
   const handleSubmit = async () => {
-    if (!validateQuestions()) {
-      alert('Please fix all question errors before submitting');
+    if (!validateQuestionSets()) {
+      alert('Please select exactly 4 different question sets');
       return;
     }
 
@@ -115,13 +137,20 @@ export default function CreateQuizClient({ user }: CreateQuizClientProps) {
     try {
       setIsSubmitting(true);
       
+      // Filter out null values and ensure we have exactly 4 IDs
+      const validQuestionSetIds = selectedQuestionSetIds.filter(id => id !== null) as string[];
+      
+      if (validQuestionSetIds.length !== 4) {
+        throw new Error('Must select exactly 4 question sets');
+      }
+
+      // FIXED: Changed from 'questionSetIds' to 'questionSetCombination'
       const quizData = {
         settings,
-        questions: questions.map((q, index) => ({
-          ...q,
-          order: index + 1
-        }))
+        questionSetCombination: validQuestionSetIds
       };
+
+      console.log('Submitting quiz data:', quizData);
 
       const response = await fetch('/api/quiz/create', {
         method: 'POST',
@@ -133,11 +162,11 @@ export default function CreateQuizClient({ user }: CreateQuizClientProps) {
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to create quiz');
+        throw new Error(errorData.message || errorData.error || 'Failed to create quiz');
       }
 
-      const data = await response.json();
-      
+      const result = await response.json();
+      console.log('Quiz created successfully:', result);
       alert('Quiz created successfully!');
       router.push('/'); // Redirect to home page or quiz list
       router.refresh();
@@ -150,10 +179,44 @@ export default function CreateQuizClient({ user }: CreateQuizClientProps) {
   };
 
   const handlePreview = () => {
-    // Store quiz data in sessionStorage for preview
-    sessionStorage.setItem('quizPreview', JSON.stringify({ settings, questions }));
+    // Get selected question sets details for preview
+    const selectedSets = selectedQuestionSetIds
+      .filter(id => id !== null)
+      .map(id => availableQuestionSets.find(qs => qs._id === id))
+      .filter(Boolean);
+
+    sessionStorage.setItem('quizPreview', JSON.stringify({ 
+      settings, 
+      questionSets: selectedSets 
+    }));
     window.open('/quiz/preview', '_blank');
   };
+
+  const handleQuestionSetChange = (index: number, questionSetId: string | null) => {
+    const newSelectedIds = [...selectedQuestionSetIds];
+    newSelectedIds[index] = questionSetId;
+    setSelectedQuestionSetIds(newSelectedIds);
+  };
+
+  // const getSelectedSetDetails = (index: number): QuestionSet | null => {
+  //   const id = selectedQuestionSetIds[index];
+  //   if (!id) return null;
+  //   return availableQuestionSets.find(qs => qs._id === id) || null;
+  // };
+
+  const getTotalStats = () => {
+    const selectedSets = selectedQuestionSetIds
+      .map(id => id ? availableQuestionSets.find(qs => qs._id === id) : null)
+      .filter(Boolean) as QuestionSet[];
+
+    return {
+      totalQuestions: selectedSets.reduce((sum, set) => sum + set.questionCount, 0),
+      totalPoints: selectedSets.reduce((sum, set) => sum + set.totalPoints, 0),
+      selectedCount: selectedSets.length
+    };
+  };
+
+  const stats = getTotalStats();
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -171,7 +234,8 @@ export default function CreateQuizClient({ user }: CreateQuizClientProps) {
           </div>
           <button 
             onClick={handlePreview}
-            className="flex items-center px-6 py-2 border border-gray-300 rounded-lg hover:bg-blue-50"
+            disabled={stats.selectedCount !== 4}
+            className="flex items-center px-6 py-2 border border-gray-300 rounded-lg hover:bg-blue-50 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Eye className="w-5 h-5 mr-2 text-blue-bg" />
             <span className="font-medium text-blue-bg">Preview</span>
@@ -197,18 +261,18 @@ export default function CreateQuizClient({ user }: CreateQuizClientProps) {
               <button
                 onClick={() => {
                   if (validateQuizDetails()) {
-                    setActiveTab('questions');
+                    setActiveTab('question-sets');
                   } else {
                     alert('Please complete quiz details first');
                   }
                 }}
                 className={`w-full px-4 py-4 text-left font-semibold rounded-lg transition-colors ${
-                  activeTab === 'questions'
+                  activeTab === 'question-sets'
                     ? 'bg-blue-bg text-white'
                     : 'text-gray-700 hover:bg-gray-50'
                 }`}
               >
-                Questions
+                Question Sets
               </button>
             </div>
 
@@ -223,13 +287,34 @@ export default function CreateQuizClient({ user }: CreateQuizClientProps) {
                   </span>
                 </div>
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-gray-600">Questions</span>
-                  <span className={questions.length > 0 && questions[0].question ? 'text-green-600' : 'text-gray-400'}>
-                    {questions.length > 0 && questions[0].question ? '✓' : '○'}
+                  <span className="text-gray-600">Question Sets</span>
+                  <span className={stats.selectedCount === 4 ? 'text-green-600' : 'text-gray-400'}>
+                    {stats.selectedCount === 4 ? '✓' : `${stats.selectedCount}/4`}
                   </span>
                 </div>
               </div>
             </div>
+
+            {/* Quiz Statistics */}
+            {stats.selectedCount > 0 && (
+              <div className="mt-4 p-4 bg-white rounded-lg shadow">
+                <h3 className="text-sm font-semibold text-gray-700 mb-2">Quiz Stats</h3>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Sets:</span>
+                    <span className="font-medium">{stats.selectedCount}/4</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Questions:</span>
+                    <span className="font-medium">{stats.totalQuestions}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Total Points:</span>
+                    <span className="font-medium">{stats.totalPoints}</span>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Main Content */}
@@ -257,22 +342,20 @@ export default function CreateQuizClient({ user }: CreateQuizClientProps) {
               </div>
             )}
 
-            {activeTab === 'questions' && (
+            {activeTab === 'question-sets' && (
               <div>
-                <QuestionsSettings
-                  questions={questions}
-                  onQuestionsChange={setQuestions}
+                <QuestionSetsSelector
+                  availableQuestionSets={availableQuestionSets}
+                  selectedQuestionSetIds={selectedQuestionSetIds}
+                  onQuestionSetChange={handleQuestionSetChange}
+                  isLoading={isLoadingQuestionSets}
+                  onRefresh={fetchQuestionSets}
                 />
 
                 {/* Error display */}
-                {Object.keys(errors).length > 0 && (
+                {errors.questionSets && (
                   <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
-                    <p className="font-semibold mb-2">Please fix the following errors:</p>
-                    <ul className="list-disc list-inside space-y-1">
-                      {Object.entries(errors).map(([key, message]) => (
-                        <li key={key}>{message}</li>
-                      ))}
-                    </ul>
+                    {errors.questionSets}
                   </div>
                 )}
 
@@ -287,7 +370,7 @@ export default function CreateQuizClient({ user }: CreateQuizClientProps) {
                   <button
                     type="button"
                     onClick={handleSubmit}
-                    disabled={isSubmitting}
+                    disabled={isSubmitting || stats.selectedCount !== 4}
                     className="px-6 py-2 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {isSubmitting ? 'Creating Quiz...' : 'Create Quiz'}

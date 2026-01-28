@@ -1,7 +1,17 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { cookies } from "next/headers";
 import LeaderboardClient from "./LeaderboardClient";
 
 const baseUrl: string = process.env.BACKEND_URL || "http://localhost:5004/api";
+
+interface QuestionSetSubmission {
+  questionSetOrder: number;
+  submittedAt: string;
+  score: number;
+  totalPoints: number;
+  percentage: number;
+  orderAnswered: number;
+}
 
 interface QuizSubmission {
   _id: string;
@@ -21,6 +31,7 @@ interface QuizSubmission {
   percentage: number;
   timeTaken: number;
   submittedAt: string;
+  questionSetSubmissions?: QuestionSetSubmission[];
 }
 
 async function getSubmissions() {
@@ -78,7 +89,12 @@ async function getQuizzes() {
 }
 
 // Calculate leaderboard from submissions
-function calculateLeaderboard(submissions: QuizSubmission[], quizId?: string, timeFilter: string = 'all-time') {
+function calculateLeaderboard(
+  submissions: QuizSubmission[], 
+  quizId?: string, 
+  timeFilter: string = 'all-time',
+  questionSetOrder?: number
+) {
   // Filter by quiz if specified
   let filteredSubmissions = quizId 
     ? submissions.filter(s => s.quizId._id === quizId)
@@ -119,35 +135,95 @@ function calculateLeaderboard(submissions: QuizSubmission[], quizId?: string, ti
         totalScore: 0,
         totalQuizzes: 0,
         totalPoints: 0,
+        // Question set tracking
+        questionSetData: {
+          percentages: [],
+          scores: [],
+          attempts: 0,
+          lastAttempt: null,
+        },
       });
     }
     
     const taker = takerMap.get(takerId);
+    
+    // Overall quiz stats
     taker.totalScore += submission.percentage;
     taker.totalQuizzes += 1;
-    taker.totalPoints += submission.score;
+    taker.totalPoints += Math.round((submission.score / submission.totalPoints) * 400);
+    
+    // Question set specific stats
+    if (questionSetOrder !== undefined && submission.questionSetSubmissions) {
+      const questionSetData = submission.questionSetSubmissions.find(
+        qs => qs.questionSetOrder === questionSetOrder
+      );
+      
+      if (questionSetData) {
+        taker.questionSetData.percentages.push(questionSetData.percentage);
+        taker.questionSetData.scores.push(questionSetData.score);
+        taker.questionSetData.attempts += 1;
+        
+        const attemptDate = new Date(questionSetData.submittedAt);
+        if (!taker.questionSetData.lastAttempt || attemptDate > new Date(taker.questionSetData.lastAttempt)) {
+          taker.questionSetData.lastAttempt = questionSetData.submittedAt;
+        }
+      }
+    }
   });
   
-  // Calculate average and sort
-  const leaderboard = Array.from(takerMap.values())
-    .map((taker) => ({
-      ...taker,
+  // Calculate averages and prepare leaderboard entries
+  const entries = Array.from(takerMap.values()).map((taker) => {
+    const entry: any = {
+      email: taker.email,
+      accessCode: taker.accessCode,
       averageScore: taker.totalScore / taker.totalQuizzes,
-    }))
-    .sort((a, b) => b.averageScore - a.averageScore)
-    .slice(0, 50) // Top 50
-    .map((taker, index) => ({
-      ...taker,
+      totalQuizzes: taker.totalQuizzes,
+      totalPoints: taker.totalPoints,
+    };
+    
+    // Add question set stats if filtered
+    if (questionSetOrder !== undefined && taker.questionSetData.attempts > 0) {
+      const avgPercentage = taker.questionSetData.percentages.reduce((a: number, b: number) => a + b, 0) / 
+                            taker.questionSetData.percentages.length;
+      const bestScore = Math.max(...taker.questionSetData.scores);
+      
+      entry.questionSetStats = {
+        averagePercentage: avgPercentage,
+        bestScore: bestScore,
+        totalAttempts: taker.questionSetData.attempts,
+        lastAttemptDate: taker.questionSetData.lastAttempt,
+      };
+    }
+    
+    return entry;
+  });
+  
+  // Filter out users with no question set data if filtering by question set
+  const filteredEntries = questionSetOrder !== undefined
+    ? entries.filter(e => e.questionSetStats && e.questionSetStats.totalAttempts > 0)
+    : entries;
+  
+  // Sort based on whether we're filtering by question set
+  const sortedEntries = filteredEntries.sort((a, b) => {
+    if (questionSetOrder !== undefined && a.questionSetStats && b.questionSetStats) {
+      // Sort by best score when filtering by question set
+      return b.questionSetStats.bestScore - a.questionSetStats.bestScore;
+    }
+    return b.averageScore - a.averageScore;
+  });
+  
+  // Return top 50 with ranks
+  const leaderboard = sortedEntries
+    .slice(0, 50)
+    .map((entry, index) => ({
+      ...entry,
       rank: index + 1,
     }));
   
   return leaderboard;
 }
 
-export default async function LeaderboardPage({
-}: {
-  searchParams: { quizId?: string; timeFilter?: string };
-}) {
+export default async function LeaderboardPage() {
   const [submissions, quizzes] = await Promise.all([
     getSubmissions(),
     getQuizzes(),

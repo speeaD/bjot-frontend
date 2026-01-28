@@ -4,8 +4,9 @@
 import { Upload } from "lucide-react";
 import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
+import { QuizSettings } from "../types/global";
 
-export default function BulkUpload() {
+export default function BulkUpload({settings}: {settings: QuizSettings}) {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isUploading, setIsUploading] = useState(false);
@@ -45,6 +46,7 @@ export default function BulkUpload() {
       setIsUploading(true);
 
       const formData = new FormData();
+      formData.append('settings', JSON.stringify(settings));
       formData.append('file', selectedFile);
 
       const response = await fetch('/api/quiz/bulk-upload', {
@@ -149,22 +151,7 @@ export default function BulkUpload() {
         </div>
       </div>
 
-      {/* Template download link */}
-      <div className="text-center">
-        <p className="text-sm text-gray-600">
-          Don&apos;t have a template?{' '}
-          <a 
-            href="/templates/quiz-template.xlsx" 
-            download
-            className="text-blue-bg hover:underline font-medium"
-          >
-            Download the Excel template
-          </a>
-        </p>
-        <p className="text-xs text-gray-500 mt-2">
-          The template includes instructions and example questions
-        </p>
-      </div>
+      
     </div>
   );
 }
