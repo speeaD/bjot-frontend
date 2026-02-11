@@ -1,4 +1,4 @@
-// app/analytics/page.tsx (Server Component)
+'use server';
 import { cookies } from "next/headers";
 import AnalyticsClient from "./AnalyticsClient";
 

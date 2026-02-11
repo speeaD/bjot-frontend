@@ -1,3 +1,5 @@
+'use server';
+
 // app/create-quiz/page.tsx (Server Component)
 import { cookies } from "next/headers";
 import CreateQuizClient from "./CreateQuizClient";
