@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import LeaderboardClient from "./LeaderboardClient";
 import { getQuizzes, getSubmissions } from "../lib/data";

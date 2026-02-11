@@ -1,4 +1,4 @@
-'use server';
+export const dynamic = 'force-dynamic';
 import AnalyticsClient from "./AnalyticsClient";
 import { getAllQuizzes, getSubmissions } from "../lib/data";
 

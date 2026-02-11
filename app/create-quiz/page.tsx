@@ -1,4 +1,4 @@
-
+export const dynamic = 'force-dynamic';
 import CreateQuizClient from "./CreateQuizClient";
 import { getUserInfo } from "../lib/data";
 
