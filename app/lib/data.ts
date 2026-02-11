@@ -17,6 +17,60 @@ const createAuthHeaders = async () => {
     Authorization: "Bearer " + token,
   };
 };
+export const getUserInfo = async () => {
+  try {
+    const cookieStore = await cookies();
+    const token = cookieStore.get("auth-token")?.value || "";
+    
+    // Optional: fetch user info if needed
+    const response = await fetch(`${baseUrl}/user/profile`, {
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      credentials: "include",
+      cache: "no-store",
+    });
+
+    if (!response.ok) {
+      return null;
+    }
+    
+    const data = await response.json();
+    return data.user || null;
+  } catch (error) {
+    console.error('Error fetching user info:', error);
+    return null;
+  }
+}
+
+export const getAllQuizzes = async () => {
+  try {
+    const cookieStore = await cookies();
+    const token = cookieStore.get("auth-token")?.value || "";
+    
+    const response = await fetch(`${baseUrl}/quiz/`, {
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      credentials: "include",
+      cache: "no-store",
+    });
+
+    if (!response.ok) {
+      console.error('Failed to fetch quizzes');
+      return [];
+    }
+    
+    const data = await response.json();
+    return data.quizzes || [];
+  } catch (error) {
+    console.error('Error fetching quizzes:', error);
+    return [];
+  }
+}
+
 
 export const getQuizzes = async () => {
   const token = await getAuthToken();
@@ -31,6 +85,35 @@ export const getQuizzes = async () => {
   const quizzes: [QuizCardProps] = allData.quizzes;
   return quizzes;
 };
+
+export const getSubmissions = async () => {
+  try {
+    const cookieStore = await cookies();
+    const token = cookieStore.get("auth-token")?.value || "";
+    
+    const response = await fetch(`${baseUrl}/admin/submissions`, {
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      credentials: "include",
+      cache: "no-store",
+    });
+
+    if (!response.ok) {
+      console.error('Failed to fetch submissions');
+      return [];
+    }
+    
+    const data = await response.json();
+    return data.submissions || [];
+  } catch (error) {
+    console.error('Error fetching submissions:', error);
+    return [];
+  }
+}
+
+
 
 // Get single quiz by ID
 export const getQuizById = async (id: string) => {

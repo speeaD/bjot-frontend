@@ -1,8 +1,7 @@
 'use server';
-import { cookies } from "next/headers";
 import AnalyticsClient from "./AnalyticsClient";
+import { getAllQuizzes, getSubmissions } from "../lib/data";
 
-const baseUrl: string = process.env.BACKEND_URL || "http://localhost:5004/api";
 
 interface Question {
   _id: string;
@@ -57,59 +56,8 @@ interface QuizSubmission {
   startedAt: string;
 }
 
-async function getSubmissions() {
-  try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get("auth-token")?.value || "";
-    
-    const response = await fetch(`${baseUrl}/admin/submissions`, {
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      credentials: "include",
-      cache: "no-store",
-    });
 
-    if (!response.ok) {
-      console.error('Failed to fetch submissions');
-      return [];
-    }
-    
-    const data = await response.json();
-    return data.submissions || [];
-  } catch (error) {
-    console.error('Error fetching submissions:', error);
-    return [];
-  }
-}
 
-async function getQuizzes() {
-  try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get("auth-token")?.value || "";
-    
-    const response = await fetch(`${baseUrl}/quiz/`, {
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      credentials: "include",
-      cache: "no-store",
-    });
-
-    if (!response.ok) {
-      console.error('Failed to fetch quizzes');
-      return [];
-    }
-    
-    const data = await response.json();
-    return data.quizzes || [];
-  } catch (error) {
-    console.error('Error fetching quizzes:', error);
-    return [];
-  }
-}
 
 // Helper function to build question map from quizzes
 function buildQuestionMap(quizzes: Quiz[]) {
@@ -369,7 +317,7 @@ function calculateAnalytics(
 export default async function AnalyticsPage() {
   const [submissions, quizzes] = await Promise.all([
     getSubmissions(),
-    getQuizzes(),
+    getAllQuizzes(),
   ]);
 
   // Calculate initial analytics (30 days)

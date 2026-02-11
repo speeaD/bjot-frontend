@@ -1,9 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-'use server';
-import { cookies } from "next/headers";
 import LeaderboardClient from "./LeaderboardClient";
+import { getQuizzes, getSubmissions } from "../lib/data";
 
-const baseUrl: string = process.env.BACKEND_URL || "http://localhost:5004/api";
 
 interface QuestionSetSubmission {
   questionSetOrder: number;
@@ -35,59 +33,7 @@ interface QuizSubmission {
   questionSetSubmissions?: QuestionSetSubmission[];
 }
 
-async function getSubmissions() {
-  try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get("auth-token")?.value || "";
-    
-    const response = await fetch(`${baseUrl}/admin/submissions`, {
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      credentials: "include",
-      cache: "no-store",
-    });
 
-    if (!response.ok) {
-      console.error('Failed to fetch submissions');
-      return [];
-    }
-    
-    const data = await response.json();
-    return data.submissions || [];
-  } catch (error) {
-    console.error('Error fetching submissions:', error);
-    return [];
-  }
-}
-
-async function getQuizzes() {
-  try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get("auth-token")?.value || "";
-    
-    const response = await fetch(`${baseUrl}/quiz/`, {
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      credentials: "include",
-      cache: "no-store",
-    });
-
-    if (!response.ok) {
-      console.error('Failed to fetch quizzes');
-      return [];
-    }
-    
-    const data = await response.json();
-    return data.quizzes || [];
-  } catch (error) {
-    console.error('Error fetching quizzes:', error);
-    return [];
-  }
-}
 
 // Calculate leaderboard from submissions
 function calculateLeaderboard(
