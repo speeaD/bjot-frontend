@@ -8,13 +8,29 @@ import QuizSettingsComponent from "../componets/QuizSettings";
 import QuestionSetsSelector from "../componets/QuestionSetsSelector";
 import { QuizSettings }  from "../types/global";
 
+interface Batch {
+  _id: string;
+  batchNumber: number;
+  name: string;
+  questionCount: number;
+  totalPoints: number;
+  isActive: boolean;
+}
+
 interface QuestionSet {
   _id: string;
   title: string;
   questionCount: number;
   totalPoints: number;
   isActive: boolean;
+  usesBatches: boolean;
+  batches?: Batch[];
   createdAt: string;
+}
+
+interface BatchSelection {
+  questionSetId: string;
+  batchNumber: number | null;
 }
 
 interface CreateQuizClientProps {
@@ -35,6 +51,7 @@ export default function CreateQuizClient({ }: CreateQuizClientProps) {
     description: '',
     instructions: '',
     isQuizChallenge: false,
+    isOpenQuiz: false,
     duration: { hours: 0, minutes: 30, seconds: 0 },
     shuffleQuestions: true,
     multipleAttempts: true,
@@ -43,11 +60,15 @@ export default function CreateQuizClient({ }: CreateQuizClientProps) {
     viewAnswer: true,
     viewResults: true,
     displayCalculator: false,
-    isOpenQuiz: false
   });
 
   // Array of exactly 4 question set IDs
   const [selectedQuestionSetIds, setSelectedQuestionSetIds] = useState<(string | null)[]>([
+    null, null, null, null
+  ]);
+
+  // NEW: Track batch selections for each question set
+  const [batchSelections, setBatchSelections] = useState<(BatchSelection | null)[]>([
     null, null, null, null
   ]);
 
@@ -79,6 +100,27 @@ export default function CreateQuizClient({ }: CreateQuizClientProps) {
     }
   };
 
+  // NEW: Fetch batches for a specific question set
+  const fetchBatchesForQuestionSet = async (questionSetId: string): Promise<Batch[]> => {
+    try {
+      const response = await fetch(`/api/questionset/${questionSetId}/batches`, {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch batches');
+      }
+
+      const data = await response.json();
+      return data.batches || [];
+    } catch (error) {
+      console.error('Error fetching batches:', error);
+      return [];
+    }
+  };
+
   // Validation
   const validateQuizDetails = (): boolean => {
     const newErrors: Record<string, string> = {};
@@ -99,7 +141,6 @@ export default function CreateQuizClient({ }: CreateQuizClientProps) {
     const newErrors: Record<string, string> = {};
 
     const selectedCount = selectedQuestionSetIds.filter(id => id !== null).length;
-    console.log('Selected question set IDs:', selectedQuestionSetIds, 'Count:', selectedCount);
     
     if (selectedCount !== 4) {
       newErrors.questionSets = 'You must select exactly 4 question sets';
@@ -109,6 +150,21 @@ export default function CreateQuizClient({ }: CreateQuizClientProps) {
     const uniqueSets = new Set(selectedQuestionSetIds.filter(id => id !== null));
     if (uniqueSets.size !== selectedCount) {
       newErrors.questionSets = 'You cannot select the same question set multiple times';
+    }
+
+    // NEW: Validate batch selections for batched question sets
+    for (let i = 0; i < selectedQuestionSetIds.length; i++) {
+      const setId = selectedQuestionSetIds[i];
+      if (setId) {
+        const questionSet = availableQuestionSets.find(qs => qs._id === setId);
+        if (questionSet?.usesBatches) {
+          const batchSelection = batchSelections[i];
+          if (!batchSelection || !batchSelection.batchNumber) {
+            newErrors.questionSets = `Please select a batch for "${questionSet.title}"`;
+            break;
+          }
+        }
+      }
     }
 
     setErrors(newErrors);
@@ -125,7 +181,7 @@ export default function CreateQuizClient({ }: CreateQuizClientProps) {
 
   const handleSubmit = async () => {
     if (!validateQuestionSets()) {
-      alert('Please select exactly 4 different question sets');
+      alert('Please select exactly 4 different question sets and their batches (if applicable)');
       return;
     }
 
@@ -144,10 +200,33 @@ export default function CreateQuizClient({ }: CreateQuizClientProps) {
         throw new Error('Must select exactly 4 question sets');
       }
 
-      // FIXED: Changed from 'questionSetIds' to 'questionSetCombination'
+      // NEW: Build batch configuration
+      const batchConfiguration: Array<{ questionSetId: string; batchNumber?: number }> = [];
+      
+      for (let i = 0; i < selectedQuestionSetIds.length; i++) {
+        const setId = selectedQuestionSetIds[i];
+        if (setId) {
+          const questionSet = availableQuestionSets.find(qs => qs._id === setId);
+          const batchSelection = batchSelections[i];
+          
+          if (questionSet?.usesBatches && batchSelection?.batchNumber) {
+            batchConfiguration.push({
+              questionSetId: setId,
+              batchNumber: batchSelection.batchNumber
+            });
+          } else {
+            // For non-batched question sets, just add the ID without batch number
+            batchConfiguration.push({
+              questionSetId: setId
+            });
+          }
+        }
+      }
+
       const quizData = {
         settings,
-        questionSetCombination: validQuestionSetIds
+        questionSetCombination: validQuestionSetIds,
+        batchConfiguration: batchConfiguration.length > 0 ? batchConfiguration : undefined
       };
 
       console.log('Submitting quiz data:', quizData);
@@ -168,7 +247,7 @@ export default function CreateQuizClient({ }: CreateQuizClientProps) {
       const result = await response.json();
       console.log('Quiz created successfully:', result);
       alert('Quiz created successfully!');
-      router.push('/'); // Redirect to home page or quiz list
+      router.push('/');
       router.refresh();
     } catch (error) {
       console.error('Error creating quiz:', error);
@@ -192,27 +271,100 @@ export default function CreateQuizClient({ }: CreateQuizClientProps) {
     window.open('/quiz/preview', '_blank');
   };
 
-  const handleQuestionSetChange = (index: number, questionSetId: string | null) => {
+  const handleQuestionSetChange = async (index: number, questionSetId: string | null) => {
     const newSelectedIds = [...selectedQuestionSetIds];
     newSelectedIds[index] = questionSetId;
     setSelectedQuestionSetIds(newSelectedIds);
+
+    // NEW: Reset batch selection when question set changes
+    const newBatchSelections = [...batchSelections];
+    if (questionSetId) {
+      const questionSet = availableQuestionSets.find(qs => qs._id === questionSetId);
+      
+      // If the question set uses batches, fetch them
+      if (questionSet?.usesBatches) {
+        const batches = await fetchBatchesForQuestionSet(questionSetId);
+        
+        // Update the question set with batches in state
+        setAvailableQuestionSets(prev => 
+          prev.map(qs => 
+            qs._id === questionSetId 
+              ? { ...qs, batches } 
+              : qs
+          )
+        );
+
+        // Auto-select first batch if available
+        if (batches.length > 0) {
+          newBatchSelections[index] = {
+            questionSetId,
+            batchNumber: batches[0].batchNumber
+          };
+        } else {
+          newBatchSelections[index] = null;
+        }
+      } else {
+        newBatchSelections[index] = null;
+      }
+    } else {
+      newBatchSelections[index] = null;
+    }
+    
+    setBatchSelections(newBatchSelections);
   };
 
-  // const getSelectedSetDetails = (index: number): QuestionSet | null => {
-  //   const id = selectedQuestionSetIds[index];
-  //   if (!id) return null;
-  //   return availableQuestionSets.find(qs => qs._id === id) || null;
-  // };
+  // NEW: Handle batch selection change
+  const handleBatchChange = (index: number, batchNumber: number | null) => {
+    const newBatchSelections = [...batchSelections];
+    const questionSetId = selectedQuestionSetIds[index];
+    
+    if (questionSetId && batchNumber) {
+      newBatchSelections[index] = {
+        questionSetId,
+        batchNumber
+      };
+    } else {
+      newBatchSelections[index] = null;
+    }
+    
+    setBatchSelections(newBatchSelections);
+  };
 
   const getTotalStats = () => {
-    const selectedSets = selectedQuestionSetIds
-      .map(id => id ? availableQuestionSets.find(qs => qs._id === id) : null)
-      .filter(Boolean) as QuestionSet[];
+    let totalQuestions = 0;
+    let totalPoints = 0;
+    let selectedCount = 0;
+
+    for (let i = 0; i < selectedQuestionSetIds.length; i++) {
+      const setId = selectedQuestionSetIds[i];
+      if (!setId) continue;
+
+      const questionSet = availableQuestionSets.find(qs => qs._id === setId);
+      if (!questionSet) continue;
+
+      selectedCount++;
+
+      // If uses batches, get stats from selected batch
+      if (questionSet.usesBatches) {
+        const batchSelection = batchSelections[i];
+        if (batchSelection?.batchNumber) {
+          const batch = questionSet.batches?.find(b => b.batchNumber === batchSelection.batchNumber);
+          if (batch) {
+            totalQuestions += batch.questionCount;
+            totalPoints += batch.totalPoints;
+          }
+        }
+      } else {
+        // Legacy: use question set stats
+        totalQuestions += questionSet.questionCount;
+        totalPoints += questionSet.totalPoints;
+      }
+    }
 
     return {
-      totalQuestions: selectedSets.reduce((sum, set) => sum + set.questionCount, 0),
-      totalPoints: selectedSets.reduce((sum, set) => sum + set.totalPoints, 0),
-      selectedCount: selectedSets.length
+      totalQuestions,
+      totalPoints,
+      selectedCount
     };
   };
 
@@ -347,7 +499,9 @@ export default function CreateQuizClient({ }: CreateQuizClientProps) {
                 <QuestionSetsSelector
                   availableQuestionSets={availableQuestionSets}
                   selectedQuestionSetIds={selectedQuestionSetIds}
+                  batchSelections={batchSelections}
                   onQuestionSetChange={handleQuestionSetChange}
+                  onBatchChange={handleBatchChange}
                   isLoading={isLoadingQuestionSets}
                   onRefresh={fetchQuestionSets}
                 />

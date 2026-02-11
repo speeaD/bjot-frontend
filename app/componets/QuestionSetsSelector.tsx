@@ -1,7 +1,16 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 'use client';
 
-import { RefreshCw, BookOpen, FileText, Award } from "lucide-react";
-import { useState } from "react";
+import { RefreshCw } from "lucide-react";
+
+interface Batch {
+  _id: string;
+  batchNumber: number;
+  name: string;
+  questionCount: number;
+  totalPoints: number;
+  isActive: boolean;
+}
 
 interface QuestionSet {
   _id: string;
@@ -9,13 +18,22 @@ interface QuestionSet {
   questionCount: number;
   totalPoints: number;
   isActive: boolean;
+  usesBatches: boolean;
+  batches?: Batch[];
   createdAt: string;
+}
+
+interface BatchSelection {
+  questionSetId: string;
+  batchNumber: number | null;
 }
 
 interface QuestionSetsSelectorProps {
   availableQuestionSets: QuestionSet[];
   selectedQuestionSetIds: (string | null)[];
+  batchSelections: (BatchSelection | null)[];
   onQuestionSetChange: (index: number, questionSetId: string | null) => void;
+  onBatchChange: (index: number, batchNumber: number | null) => void;
   isLoading: boolean;
   onRefresh: () => void;
 }
@@ -23,194 +41,239 @@ interface QuestionSetsSelectorProps {
 export default function QuestionSetsSelector({
   availableQuestionSets,
   selectedQuestionSetIds,
+  batchSelections,
   onQuestionSetChange,
+  onBatchChange,
   isLoading,
-  onRefresh
+  onRefresh,
 }: QuestionSetsSelectorProps) {
-  const [searchTerm, setSearchTerm] = useState('');
-
-  const filteredQuestionSets = availableQuestionSets.filter(qs =>
-    qs.title.toLowerCase().includes(searchTerm.toLowerCase()) && qs.isActive
-  );
-
-  const isQuestionSetSelected = (questionSetId: string): boolean => {
-    return selectedQuestionSetIds.includes(questionSetId);
+  
+  const getAvailableQuestionSets = (currentIndex: number) => {
+    // Filter out already selected question sets (except current)
+    return availableQuestionSets.filter(qs => {
+      const isSelected = selectedQuestionSetIds.some((id, idx) => 
+        id === qs._id && idx !== currentIndex
+      );
+      return !isSelected && qs.isActive;
+    });
   };
 
-  const getQuestionSetDetails = (questionSetId: string | null): QuestionSet | null => {
-    if (!questionSetId) return null;
-    return availableQuestionSets.find(qs => qs._id === questionSetId) || null;
+  const getSelectedQuestionSet = (index: number): QuestionSet | null => {
+    const id = selectedQuestionSetIds[index];
+    if (!id) return null;
+    return availableQuestionSets.find(qs => qs._id === id) || null;
+  };
+
+  const getActiveBatches = (questionSet: QuestionSet): Batch[] => {
+    if (!questionSet.batches) return [];
+    return questionSet.batches.filter(b => b.isActive);
+  };
+
+  const renderQuestionSetSelector = (index: number) => {
+    const selectedSet = getSelectedQuestionSet(index);
+    const availableSets = getAvailableQuestionSets(index);
+    const batchSelection = batchSelections[index];
+
+    return (
+      <div key={index} className="bg-white rounded-lg shadow p-6 border-2 border-gray-200">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold text-gray-800">
+            Question Set {index + 1}
+          </h3>
+          {selectedSet && (
+            <span className="px-3 py-1 bg-green-100 text-green-700 rounded-full text-sm font-medium">
+              Selected
+            </span>
+          )}
+        </div>
+
+        {/* Question Set Dropdown */}
+        <div className="mb-4">
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Select Question Set
+          </label>
+          <select
+            value={selectedQuestionSetIds[index] || ''}
+            onChange={(e) => onQuestionSetChange(index, e.target.value || null)}
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            disabled={isLoading}
+          >
+            <option value="">-- Select a question set --</option>
+            {availableSets.map((qs) => (
+              <option key={qs._id} value={qs._id}>
+                {qs.title} ({qs.questionCount} questions, {qs.totalPoints} points)
+                {qs.usesBatches ? ' - Has Batches' : ''}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* Batch Selector - Show only if question set uses batches */}
+        {selectedSet?.usesBatches && (
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Select Batch <span className="text-red-500">*</span>
+            </label>
+            <select
+              value={batchSelection?.batchNumber || ''}
+              onChange={(e) => onBatchChange(index, e.target.value ? parseInt(e.target.value) : null)}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            >
+              <option value="">-- Select a batch --</option>
+              {getActiveBatches(selectedSet).map((batch) => (
+                <option key={batch._id} value={batch.batchNumber}>
+                  {batch.name} ({batch.questionCount} questions, {batch.totalPoints} points)
+                </option>
+              ))}
+            </select>
+            {selectedSet.batches && selectedSet.batches.length === 0 && (
+              <p className="mt-2 text-sm text-amber-600">
+                ⚠️ This question set has no active batches. Please contact admin.
+              </p>
+            )}
+          </div>
+        )}
+
+        {/* Selected Question Set Details */}
+        {selectedSet && (
+          <div className="mt-4 p-4 bg-gray-50 rounded-lg">
+            <h4 className="font-medium text-gray-800 mb-2">{selectedSet.title}</h4>
+            
+            {selectedSet.usesBatches && batchSelection?.batchNumber ? (
+              // Show batch details
+              (() => {
+                const batch = selectedSet.batches?.find(b => b.batchNumber === batchSelection.batchNumber);
+                return batch ? (
+                  <div className="space-y-1 text-sm text-gray-600">
+                    <div className="flex items-center justify-between">
+                      <span>Batch:</span>
+                      <span className="font-medium text-blue-600">{batch.name}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span>Questions:</span>
+                      <span className="font-medium">{batch.questionCount}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span>Total Points:</span>
+                      <span className="font-medium">{batch.totalPoints}</span>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-sm text-red-600">Batch not found</p>
+                );
+              })()
+            ) : (
+              // Show question set details (legacy)
+              <div className="space-y-1 text-sm text-gray-600">
+                <div className="flex items-center justify-between">
+                  <span>Questions:</span>
+                  <span className="font-medium">{selectedSet.questionCount}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span>Total Points:</span>
+                  <span className="font-medium">{selectedSet.totalPoints}</span>
+                </div>
+                {selectedSet.usesBatches && !batchSelection?.batchNumber && (
+                  <p className="mt-2 text-sm text-red-600">
+                    ⚠️ Please select a batch for this question set
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Empty State */}
+        {!selectedSet && (
+          <div className="mt-4 p-8 border-2 border-dashed border-gray-300 rounded-lg text-center">
+            <p className="text-gray-500">No question set selected</p>
+            <p className="text-sm text-gray-400 mt-1">
+              Choose from {availableSets.length} available question set{availableSets.length !== 1 ? 's' : ''}
+            </p>
+          </div>
+        )}
+      </div>
+    );
   };
 
   return (
-    <div className="bg-white rounded-lg shadow-sm p-6">
+    <div>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h2 className="text-xl font-bold text-gray-800">Select 4 Question Sets</h2>
-          <p className="text-sm text-gray-600 mt-1">
-            Choose exactly 4 different question sets to combine into this quiz
-          </p>
+          <h2 className="text-2xl font-bold text-gray-800">Select Question Sets</h2>
+          <p className="text-gray-600 mt-1">Choose exactly 4 question sets for your quiz</p>
         </div>
         <button
           onClick={onRefresh}
           disabled={isLoading}
-          className="flex items-center gap-2 px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+          className="flex items-center px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
         >
-          <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+          <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
           Refresh
         </button>
       </div>
 
-      {/* Selected Question Sets Grid */}
-      <div className="grid grid-cols-2 gap-4 mb-8">
-        {[0, 1, 2, 3].map((index) => {
-          const selectedSet = getQuestionSetDetails(selectedQuestionSetIds[index]);
-          
-          return (
-            <div key={index} className="border-2 border-dashed border-gray-300 rounded-lg p-4">
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="font-semibold text-gray-700">
-                  Subject {index + 1}
-                </h3>
-                {selectedSet && (
-                  <button
-                    onClick={() => onQuestionSetChange(index, null)}
-                    className="text-xs text-red-600 hover:text-red-700 font-medium"
-                  >
-                    Remove
-                  </button>
-                )}
-              </div>
-
-              {selectedSet ? (
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <h4 className="font-semibold text-blue-900 mb-2">
-                        {selectedSet.title}
-                      </h4>
-                      <div className="flex gap-4 text-xs text-blue-700">
-                        <div className="flex items-center gap-1">
-                          <FileText className="w-3 h-3" />
-                          <span>{selectedSet.questionCount} questions</span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <Award className="w-3 h-3" />
-                          <span>{selectedSet.totalPoints} points</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <div className="text-center py-8 text-gray-400">
-                  <BookOpen className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                  <p className="text-sm">No set selected</p>
-                </div>
-              )}
-            </div>
-          );
-        })}
+      {/* Info Banner about Batches */}
+      <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+        <p className="text-sm text-blue-800">
+          <strong>ℹ️ Batch System:</strong> Some question sets may have multiple batches. 
+          If a question set uses batches, you must select which batch to use in this quiz. 
+          This allows you to create different quiz variations using the same question sets.
+        </p>
       </div>
 
-      {/* Available Question Sets */}
-      <div className="border-t pt-6">
-        <h3 className="text-lg font-semibold text-gray-800 mb-4">
-          Available Question Sets ({filteredQuestionSets.length})
-        </h3>
-
-        {/* Search */}
-        <div className="mb-4">
-          <input
-            type="text"
-            placeholder="Search question sets..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
+      {isLoading && (
+        <div className="text-center py-8">
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-gray-300 border-t-blue-600"></div>
+          <p className="mt-2 text-gray-600">Loading question sets...</p>
         </div>
+      )}
 
-        {/* Question Sets List */}
-        {isLoading ? (
-          <div className="text-center py-12">
-            <RefreshCw className="w-8 h-8 mx-auto mb-2 animate-spin text-gray-400" />
-            <p className="text-gray-600">Loading question sets...</p>
-          </div>
-        ) : filteredQuestionSets.length === 0 ? (
-          <div className="text-center py-12 bg-gray-50 rounded-lg">
-            <BookOpen className="w-12 h-12 mx-auto mb-3 text-gray-400" />
-            <p className="text-gray-600 font-medium">No question sets available</p>
-            <p className="text-sm text-gray-500 mt-1">
-              {searchTerm ? 'Try a different search term' : 'Create question sets first'}
-            </p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 gap-3 max-h-96 overflow-y-auto">
-            {filteredQuestionSets.map((questionSet) => {
-              const isSelected = isQuestionSetSelected(questionSet._id);
-              const canSelect = selectedQuestionSetIds.filter(id => id !== null).length < 4;
+      {!isLoading && availableQuestionSets.length === 0 && (
+        <div className="text-center py-12 bg-white rounded-lg shadow">
+          <p className="text-gray-600">No question sets available</p>
+          <p className="text-sm text-gray-400 mt-1">
+            Create question sets first before creating a quiz
+          </p>
+        </div>
+      )}
+
+      {!isLoading && availableQuestionSets.length > 0 && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {[0, 1, 2, 3].map((index) => renderQuestionSetSelector(index))}
+        </div>
+      )}
+
+      {/* Summary */}
+      {selectedQuestionSetIds.filter(id => id !== null).length > 0 && (
+        <div className="mt-6 p-4 bg-white rounded-lg shadow border-l-4 border-blue-500">
+          <h3 className="font-semibold text-gray-800 mb-2">Selection Summary</h3>
+          <div className="space-y-1 text-sm">
+            {selectedQuestionSetIds.map((id, index) => {
+              if (!id) return null;
+              const set = getSelectedQuestionSet(index);
+              const batch = batchSelections[index];
               
-              return (
-                <div
-                  key={questionSet._id}
-                  className={`border rounded-lg p-4 transition-all ${
-                    isSelected
-                      ? 'border-blue-500 bg-blue-50'
-                      : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1">
-                      <h4 className="font-semibold text-gray-800 mb-1">
-                        {questionSet.title}
-                      </h4>
-                      <div className="flex gap-4 text-sm text-gray-600">
-                        <div className="flex items-center gap-1">
-                          <FileText className="w-4 h-4" />
-                          <span>{questionSet.questionCount} questions</span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <Award className="w-4 h-4" />
-                          <span>{questionSet.totalPoints} points</span>
-                        </div>
-                      </div>
-                    </div>
+              if (!set) return null;
 
-                    {isSelected ? (
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-medium text-blue-600 bg-blue-100 px-2 py-1 rounded">
-                          Selected
-                        </span>
-                      </div>
-                    ) : (
-                      <select
-                        onChange={(e) => {
-                          const selectedIndex = parseInt(e.target.value);
-                          if (selectedIndex >= 0) {
-                            onQuestionSetChange(selectedIndex, questionSet._id);
-                          }
-                        }}
-                        value=""
-                        disabled={!canSelect}
-                        className="px-3 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        <option value="">Add to...</option>
-                        {[0, 1, 2, 3].map((index) => (
-                          selectedQuestionSetIds[index] === null && (
-                            <option key={index} value={index}>
-                              Subject {index + 1}
-                            </option>
-                          )
-                        ))}
-                      </select>
-                    )}
-                  </div>
+              let displayText = `${index + 1}. ${set.title}`;
+              
+              if (set.usesBatches && batch?.batchNumber) {
+                const batchObj = set.batches?.find(b => b.batchNumber === batch.batchNumber);
+                if (batchObj) {
+                  displayText += ` - ${batchObj.name}`;
+                }
+              }
+
+              return (
+                <div key={index} className="text-gray-700">
+                  {displayText}
                 </div>
               );
             })}
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }

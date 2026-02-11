@@ -433,9 +433,6 @@ export default function LeaderboardClient({ submissions, quizzes, initialLeaderb
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                             Quiz Taker
                           </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Access Code
-                          </th>
                           {selectedQuestionSet === null ? (
                             <>
                               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -481,11 +478,6 @@ export default function LeaderboardClient({ submissions, quizzes, initialLeaderb
                               <div className="text-sm font-medium text-gray-900">
                                 {entry.email}
                               </div>
-                            </td>
-                            <td className="px-6 py-4">
-                              <code className="px-2 py-1 bg-gray-100 rounded text-blue-600 font-mono text-xs">
-                                {entry.accessCode}
-                              </code>
                             </td>
                             {selectedQuestionSet === null ? (
                               <>

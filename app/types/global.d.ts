@@ -12,6 +12,7 @@ interface QuizSettings {
     description: string;
     instructions: string;
     isQuizChallenge: boolean;
+    isOpenQuiz: boolean;
     duration: Duration;
     shuffleQuestions: boolean;
     multipleAttempts: boolean;
@@ -22,6 +23,20 @@ interface QuizSettings {
     displayCalculator: boolean;
 }
 
+
+interface Batch {
+  _id: string;
+  batchNumber: number;
+  name: string;
+  questionCount: number;
+  totalPoints: number;
+  isActive: boolean;
+}
+
+interface BatchSelection {
+  questionSetId: string;
+  batchNumber: number | null;
+}
 interface QuizAuthor {
   _id: string;
   email: string;

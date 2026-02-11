@@ -32,10 +32,7 @@ export async function POST(request: NextRequest) {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${token}`,
       },
-      body: JSON.stringify({
-        quizId,
-        quizTakerIds,
-      }),
+      body: JSON.stringify(body),
     });
 
     const data = await response.json();

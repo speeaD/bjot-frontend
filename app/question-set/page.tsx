@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Upload, Search, FileText, Award, Trash2, Eye, Download } from 'lucide-react';
 import Sidebar from '../componets/Sidebar';
+import Link from 'next/link';
 
 interface QuestionSet {
     _id: string;
@@ -250,13 +251,14 @@ export default function ManageQuestionSets() {
                                         </div>
 
                                         <div className="flex gap-2 pt-4 border-t">
-                                            <button
-                                                onClick={() => window.open(`/question-sets/${questionSet._id}`, '_blank')}
+                                           <Link href={`/question-set/${questionSet._id}`}>
+                                            <div
                                                 className="flex-1 flex items-center justify-center gap-1 px-3 py-2 text-sm border border-gray-300 rounded hover:bg-gray-50"
                                             >
                                                 <Eye className="w-4 h-4" />
                                                 View
-                                            </button>
+                                            </div>
+                                           </Link>
                                             <button
                                                 onClick={() => handleToggleActive(questionSet._id)}
                                                 className="flex-1 px-3 py-2 text-sm border border-gray-300 rounded hover:bg-gray-50"
