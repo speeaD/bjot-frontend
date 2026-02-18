@@ -140,97 +140,97 @@ export const getQuizById = async (id: string) => {
   }
 };
 
-// Update quiz (for edit functionality)
-export const updateQuiz = async (id: string, quizData: any) => {
-  const token = await getAuthToken();
-  try {
-    const response = await fetch(`${baseUrl}/quiz/${id}`, {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: "Bearer " + token,
-      },
-      credentials: "include",
-      body: JSON.stringify(quizData),
-    });
+// // Update quiz (for edit functionality)
+// export const updateQuiz = async (id: string, quizData: any) => {
+//   const token = await getAuthToken();
+//   try {
+//     const response = await fetch(`${baseUrl}/quiz/${id}`, {
+//       method: "PUT",
+//       headers: {
+//         "Content-Type": "application/json",
+//         Authorization: "Bearer " + token,
+//       },
+//       credentials: "include",
+//       body: JSON.stringify(quizData),
+//     });
 
-    if (!response.ok) {
-      throw new Error(`Failed to update quiz: ${response.statusText}`);
-    }
+//     if (!response.ok) {
+//       throw new Error(`Failed to update quiz: ${response.statusText}`);
+//     }
 
-    const data: ApiResponse = await response.json();
-    return data;
-  } catch (error) {
-    console.error("Error updating quiz:", error);
-    throw error;
-  }
-};
+//     const data: ApiResponse = await response.json();
+//     return data;
+//   } catch (error) {
+//     console.error("Error updating quiz:", error);
+//     throw error;
+//   }
+// };
 
-// Delete quiz
-export const deleteQuiz = async (id: string) => {
-  const token = await getAuthToken();
-  try {
-    const response = await fetch(`${baseUrl}/quiz/${id}`, {
-      method: "DELETE",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: "Bearer " + token,
-      },
-      credentials: "include",
-    });
+// // Delete quiz
+// export const deleteQuiz = async (id: string) => {
+//   const token = await getAuthToken();
+//   try {
+//     const response = await fetch(`${baseUrl}/quiz/${id}`, {
+//       method: "DELETE",
+//       headers: {
+//         "Content-Type": "application/json",
+//         Authorization: "Bearer " + token,
+//       },
+//       credentials: "include",
+//     });
 
-    if (!response.ok) {
-      throw new Error(`Failed to delete quiz: ${response.statusText}`);
-    }
+//     if (!response.ok) {
+//       throw new Error(`Failed to delete quiz: ${response.statusText}`);
+//     }
 
-    const data: ApiResponse = await response.json();
-    return data;
-  } catch (error) {
-    console.error("Error deleting quiz:", error);
-    throw error;
-  }
-};
+//     const data: ApiResponse = await response.json();
+//     return data;
+//   } catch (error) {
+//     console.error("Error deleting quiz:", error);
+//     throw error;
+//   }
+// };
 
-// Toggle quiz active status
-export const toggleQuizStatus = async (id: string, isActive: boolean) => {
-  const token = await getAuthToken();
-  try {
-    const response = await fetch(`${baseUrl}/quiz/${id}`, {
-      method: "PATCH",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: "Bearer " + token,
-      },
-      credentials: "include",
-      body: JSON.stringify({ isActive }),
-    });
+// // Toggle quiz active status
+// export const toggleQuizStatus = async (id: string, isActive: boolean) => {
+//   const token = await getAuthToken();
+//   try {
+//     const response = await fetch(`${baseUrl}/quiz/${id}`, {
+//       method: "PATCH",
+//       headers: {
+//         "Content-Type": "application/json",
+//         Authorization: "Bearer " + token,
+//       },
+//       credentials: "include",
+//       body: JSON.stringify({ isActive }),
+//     });
 
-    if (!response.ok) {
-      throw new Error(`Failed to toggle quiz status: ${response.statusText}`);
-    }
+//     if (!response.ok) {
+//       throw new Error(`Failed to toggle quiz status: ${response.statusText}`);
+//     }
 
-    const data: ApiResponse = await response.json();
-    return data;
-  } catch (error) {
-    console.error("Error toggling quiz status:", error);
-    throw error;
-  }
-};
+//     const data: ApiResponse = await response.json();
+//     return data;
+//   } catch (error) {
+//     console.error("Error toggling quiz status:", error);
+//     throw error;
+//   }
+// };
 
-export const bulkuploadQuiz = async (formData: FormData) => {
-  try {
-    const response = await fetch(`${baseUrl}/quiz/create-with-upload`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${localStorage.getItem("token") || ""}`,
-      },
-      body: formData,
-    });
+// export const bulkuploadQuiz = async (formData: FormData) => {
+//   try {
+//     const response = await fetch(`${baseUrl}/quiz/create-with-upload`, {
+//       method: "POST",
+//       headers: {
+//         Authorization: `Bearer ${localStorage.getItem("token") || ""}`,
+//       },
+//       body: formData,
+//     });
 
-    const data: ApiResponse = await response.json();
-    return data;
-  } catch (error) {
-    console.error("Upload error:", error);
-    alert("Failed to upload quiz. Please try again.");
-  }
-};
+//     const data: ApiResponse = await response.json();
+//     return data;
+//   } catch (error) {
+//     console.error("Upload error:", error);
+//     alert("Failed to upload quiz. Please try again.");
+//   }
+// };

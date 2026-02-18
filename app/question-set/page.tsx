@@ -42,8 +42,8 @@ export default function ManageQuestionSets() {
                 setQuestionSets(data.questionSets || []);
             }
         } catch (error) {
-            console.error('Error fetching question sets:', error);
-            alert('Failed to load question sets');
+            console.error('Error fetching Subjects:', error);
+            alert('Failed to load Subjects');
         } finally {
             setIsLoading(false);
         }
@@ -53,7 +53,7 @@ export default function ManageQuestionSets() {
         e.preventDefault();
 
         if (!uploadTitle.trim()) {
-            alert('Please enter a title for the question set');
+            alert('Please enter a title for the Subject');
             return;
         }
 
@@ -76,24 +76,24 @@ export default function ManageQuestionSets() {
             const data = await response.json();
 
             if (!response.ok) {
-                throw new Error(data.message || 'Failed to upload question set');
+                throw new Error(data.message || 'Failed to upload Subject');
             }
 
-            alert(`Question set uploaded successfully! ${data.questionSet.questionCount} questions added.`);
+            alert(`Subject uploaded successfully! ${data.questionSet.questionCount} questions added.`);
             setShowUploadModal(false);
             setUploadTitle('');
             setUploadFile(null);
             fetchQuestionSets();
         } catch (error) {
-            console.error('Error uploading question set:', error);
-            alert(error instanceof Error ? error.message : 'Failed to upload question set');
+            console.error('Error uploading Subject:', error);
+            alert(error instanceof Error ? error.message : 'Failed to upload Subject');
         } finally {
             setIsUploading(false);
         }
     };
 
     const handleDelete = async (id: string) => {
-        if (!confirm('Are you sure you want to delete this question set?')) {
+        if (!confirm('Are you sure you want to delete this Subject?')) {
             return;
         }
 
@@ -105,14 +105,14 @@ export default function ManageQuestionSets() {
             const data = await response.json();
 
             if (!response.ok) {
-                throw new Error(data.message || 'Failed to delete question set');
+                throw new Error(data.message || 'Failed to delete Subject');
             }
 
-            alert('Question set deleted successfully');
+            alert('Subject deleted successfully');
             fetchQuestionSets();
         } catch (error) {
-            console.error('Error deleting question set:', error);
-            alert(error instanceof Error ? error.message : 'Failed to delete question set');
+            console.error('Error deleting Subject:', error);
+            alert(error instanceof Error ? error.message : 'Failed to delete Subject');
         }
     };
 
@@ -125,13 +125,13 @@ export default function ManageQuestionSets() {
             const data = await response.json();
 
             if (!response.ok) {
-                throw new Error(data.message || 'Failed to update question set');
+                throw new Error(data.message || 'Failed to update Subject');
             }
 
             fetchQuestionSets();
         } catch (error) {
             console.error('Error toggling active status:', error);
-            alert('Failed to update question set');
+            alert('Failed to update Subject');
         }
     };
 
@@ -156,8 +156,8 @@ export default function ManageQuestionSets() {
                         {/* Header */}
                         <div className="flex items-center justify-between mb-8">
                             <div>
-                                <h1 className="text-3xl font-bold text-gray-900">Question Sets</h1>
-                                <p className="text-gray-600 mt-1">Manage reusable question sets for your exams</p>
+                                <h1 className="text-3xl font-bold text-gray-900">Subjects</h1>
+                                <p className="text-gray-600 mt-1">Manage reusable Subjects for your exams</p>
                             </div>
                             <div className="flex gap-3">
                                 <button
@@ -172,7 +172,7 @@ export default function ManageQuestionSets() {
                                     className="flex items-center gap-2 px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
                                 >
                                     <Upload className="w-5 h-5" />
-                                    Upload Question Set
+                                    Upload Subject
                                 </button>
                             </div>
                         </div>
@@ -183,7 +183,7 @@ export default function ManageQuestionSets() {
                                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
                                 <input
                                     type="text"
-                                    placeholder="Search question sets..."
+                                    placeholder="Search Subjects..."
                                     value={searchTerm}
                                     onChange={(e) => setSearchTerm(e.target.value)}
                                     className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
@@ -191,17 +191,17 @@ export default function ManageQuestionSets() {
                             </div>
                         </div>
 
-                        {/* Question Sets Grid */}
+                        {/* Subjects Grid */}
                         {isLoading ? (
                             <div className="text-center py-12">
-                                <p className="text-gray-600">Loading question sets...</p>
+                                <p className="text-gray-600">Loading Subjects...</p>
                             </div>
                         ) : filteredSets.length === 0 ? (
                             <div className="text-center py-12 bg-white rounded-lg shadow">
                                 <FileText className="w-16 h-16 mx-auto mb-4 text-gray-400" />
-                                <h3 className="text-lg font-semibold text-gray-900 mb-2">No question sets found</h3>
+                                <h3 className="text-lg font-semibold text-gray-900 mb-2">No Subjects found</h3>
                                 <p className="text-gray-600 mb-6">
-                                    {searchTerm ? 'Try a different search term' : 'Upload your first question set to get started'}
+                                    {searchTerm ? 'Try a different search term' : 'Upload your first Subject to get started'}
                                 </p>
                                 {!searchTerm && (
                                     <button
@@ -209,7 +209,7 @@ export default function ManageQuestionSets() {
                                         className="inline-flex items-center gap-2 px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
                                     >
                                         <Upload className="w-5 h-5" />
-                                        Upload Question Set
+                                        Upload Subject
                                     </button>
                                 )}
                             </div>
@@ -281,12 +281,12 @@ export default function ManageQuestionSets() {
                         {showUploadModal && (
                             <div className="fixed inset-0 bg-black/80 bg-opacity-50 flex items-center justify-center z-50">
                                 <div className="bg-white rounded-lg shadow-xl p-6 max-w-md w-full mx-4">
-                                    <h2 className="text-xl font-bold text-gray-900 mb-4">Upload Question Set</h2>
+                                    <h2 className="text-xl font-bold text-gray-900 mb-4">Upload Subject</h2>
 
                                     <form onSubmit={handleUpload}>
                                         <div className="mb-4">
                                             <label className="block text-sm font-medium text-gray-700 mb-2">
-                                                Question Set Title *
+                                                Subject Title *
                                             </label>
                                             <input
                                                 type="text"

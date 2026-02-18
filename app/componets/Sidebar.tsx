@@ -1,4 +1,4 @@
-import { ChevronRight, Users, ChartLine, Award } from "lucide-react";
+import { ChevronRight, Users, ChartLine, Award, File, Calendar } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 
@@ -24,6 +24,19 @@ export default function Sidebar() {
 
         {/* Navigation Links */}
         <nav className="space-y-2">
+          <Link href="/">
+            <div className="flex items-center justify-between p-3 rounded-xl hover:bg-gray-50 transition-colors cursor-pointer group">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-red-50 rounded-lg flex items-center justify-center">
+                  <File className="w-5 h-5 text-red-500" />
+                </div>
+                <h5 className="font-semibold text-gray-900 text-sm">
+                  Exams
+                </h5>
+              </div>
+              <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-gray-600 transition-colors" />
+            </div>
+          </Link>
           <Link href="/question-set">
             <div className="flex items-center justify-between p-3 rounded-xl hover:bg-gray-50 transition-colors cursor-pointer group">
               <div className="flex items-center gap-3">
@@ -36,7 +49,7 @@ export default function Sidebar() {
                   />
                 </div>
                 <h5 className="font-semibold text-gray-900 text-sm">
-                  Questions
+                  Subjects
                 </h5>
               </div>
               <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-gray-600 transition-colors" />
@@ -50,7 +63,21 @@ export default function Sidebar() {
                   <Users className="w-5 h-5 text-green-bg" />
                 </div>
                 <h5 className="font-semibold text-gray-900 text-sm">
-                  Exam Takers
+                  Students
+                </h5>
+              </div>
+              <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-gray-600 transition-colors" />
+            </div>
+          </Link>
+
+          <Link href="/attendance">
+            <div className="flex items-center justify-between p-3 rounded-xl hover:bg-gray-50 transition-colors cursor-pointer group">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-purple-50 rounded-lg flex items-center justify-center">
+                  <Calendar className="w-5 h-5 text-purple-600" />
+                </div>
+                <h5 className="font-semibold text-gray-900 text-sm">
+                  Attendance
                 </h5>
               </div>
               <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-gray-600 transition-colors" />

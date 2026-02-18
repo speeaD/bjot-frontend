@@ -355,7 +355,7 @@ export default function QuizTakersClient({ initialQuizTakers, quizzes, questionS
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to create quiz taker');
+        throw new Error(errorData.message || 'Failed to create student');
       }
 
       const data = await response.json();
@@ -370,8 +370,8 @@ export default function QuizTakersClient({ initialQuizTakers, quizzes, questionS
       
       router.refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create quiz taker');
-      alert(err instanceof Error ? err.message : 'Failed to create quiz taker');
+      setError(err instanceof Error ? err.message : 'Failed to create student');
+      alert(err instanceof Error ? err.message : 'Failed to create student');
     } finally {
       setIsSubmitting(false);
     }
@@ -389,15 +389,15 @@ export default function QuizTakersClient({ initialQuizTakers, quizzes, questionS
         body: JSON.stringify({ id }),
       });
 
-      if (!response.ok) throw new Error('Failed to delete quiz taker');
+      if (!response.ok) throw new Error('Failed to delete student');
 
       setQuizTakers(prev => prev.filter(t => t._id !== id));
       setSelectedTakers(prev => prev.filter(t => t !== id));
       
-      alert('Quiz taker deleted successfully');
+      alert('Student deleted successfully');
       router.refresh();
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Failed to delete quiz taker');
+      alert(err instanceof Error ? err.message : 'Failed to delete student');
     }
   };
 
@@ -413,15 +413,15 @@ export default function QuizTakersClient({ initialQuizTakers, quizzes, questionS
         body: JSON.stringify({ ids: selectedTakers }),
       });
 
-      if (!response.ok) throw new Error('Failed to delete quiz takers');
+      if (!response.ok) throw new Error('Failed to delete students');
 
       setQuizTakers(prev => prev.filter(t => !selectedTakers.includes(t._id)));
       setSelectedTakers([]);
       
-      alert('Quiz takers deleted successfully');
+      alert('Students deleted successfully');
       router.refresh();
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Failed to delete quiz takers');
+      alert(err instanceof Error ? err.message : 'Failed to delete students');
     }
   };
 
@@ -474,16 +474,16 @@ export default function QuizTakersClient({ initialQuizTakers, quizzes, questionS
         }),
       });
 
-      if (!response.ok) throw new Error('Failed to assign quiz');
+      if (!response.ok) throw new Error('Failed to assign exam');
 
-      alert('Quiz assigned successfully');
+      alert('Exam assigned successfully');
       setShowAssignModal(false);
       setSelectedQuizId('');
       router.refresh();
       const newTakers = await fetch('/api/quiz-takers').then(r => r.json());
       setQuizTakers(newTakers.quizTakers || []);
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Failed to assign quiz');
+      alert(err instanceof Error ? err.message : 'Failed to assign exam');
     } finally {
       setIsSubmitting(false);
     }
@@ -505,9 +505,9 @@ export default function QuizTakersClient({ initialQuizTakers, quizzes, questionS
         }),
       });
 
-      if (!response.ok) throw new Error('Failed to unassign quiz');
+      if (!response.ok) throw new Error('Failed to unassign exam');
 
-      alert('Quiz unassigned successfully');
+      alert('Exam unassigned successfully');
       setShowUnassignModal(false);
       setSelectedUnassignQuizId('');
       router.refresh();
@@ -516,7 +516,7 @@ export default function QuizTakersClient({ initialQuizTakers, quizzes, questionS
       setQuizTakers(newTakers.quizTakers || []);
       
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Failed to unassign quiz');
+      alert(err instanceof Error ? err.message : 'Failed to unassign exam');
     } finally {
       setIsSubmitting(false);
     }
@@ -609,10 +609,10 @@ export default function QuizTakersClient({ initialQuizTakers, quizzes, questionS
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div>
                   <h1 className="text-2xl md:text-3xl font-bold text-gray-900">
-                    Quiz Takers
+                    Students
                   </h1>
                   <p className="text-sm text-gray-500 mt-1">
-                    Manage your quiz takers and assignments
+                    Manage your students and assignments
                   </p>
                 </div>
 
@@ -774,15 +774,15 @@ export default function QuizTakersClient({ initialQuizTakers, quizzes, questionS
                   {/* Assigned Quiz Filter */}
                   <div>
                     <label className="block text-xs font-medium text-gray-700 mb-1.5">
-                      Assigned Quiz
+                      Assigned Exam
                     </label>
                     <select
                       value={assignedQuizFilter}
                       onChange={(e) => setAssignedQuizFilter(e.target.value)}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
-                      <option value="all">All Quizzes</option>
-                      <option value="none">No Quiz Assigned</option>
+                      <option value="all">All Exams</option>
+                      <option value="none">No Exam Assigned</option>
                       {assignedQuizzesForFilter.map(quiz => (
                         <option key={quiz.id} value={quiz.id}>
                           {quiz.title}
@@ -796,7 +796,7 @@ export default function QuizTakersClient({ initialQuizTakers, quizzes, questionS
                 {uniqueCombinations.length > 0 && (
                   <div>
                     <label className="block text-xs font-medium text-gray-700 mb-2">
-                      Question Set Combination
+                     Subject Combinations
                     </label>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-32 overflow-y-auto p-2 bg-gray-50 rounded-lg border border-gray-200">
                       {uniqueCombinations.map(combo => (
@@ -835,7 +835,7 @@ export default function QuizTakersClient({ initialQuizTakers, quizzes, questionS
               <div className="mt-4 pt-4 border-t border-gray-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <p className="text-sm text-gray-600">
                   Showing <span className="font-semibold">{filteredQuizTakers.length}</span> of{' '}
-                  <span className="font-semibold">{quizTakers.length}</span> quiz takers
+                  <span className="font-semibold">{quizTakers.length}</span> students
                 </p>
                 
                 {/* Bulk Actions - Only show when items selected */}
@@ -894,7 +894,7 @@ export default function QuizTakersClient({ initialQuizTakers, quizzes, questionS
                         />
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Quiz Taker
+                        Student
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Type
@@ -909,7 +909,7 @@ export default function QuizTakersClient({ initialQuizTakers, quizzes, questionS
                         Subjects
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Quizzes
+                        Exams
                       </th>
                       <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Actions
@@ -922,11 +922,11 @@ export default function QuizTakersClient({ initialQuizTakers, quizzes, questionS
                         <td colSpan={8} className="px-6 py-12 text-center">
                           <div className="flex flex-col items-center justify-center">
                             <Users className="w-12 h-12 text-gray-300 mb-3" />
-                            <p className="text-gray-500 font-medium">No quiz takers found</p>
+                            <p className="text-gray-500 font-medium">No students found</p>
                             <p className="text-sm text-gray-400 mt-1">
                               {searchTerm || activeFilterCount > 0 
                                 ? 'Try adjusting your filters' 
-                                : 'Add your first quiz taker to get started'}
+                                : 'Add your first student to get started'}
                             </p>
                           </div>
                         </td>
@@ -1023,7 +1023,7 @@ export default function QuizTakersClient({ initialQuizTakers, quizzes, questionS
                                   setShowUnassignModal(true);
                                 }}
                                 className="text-orange-600 hover:text-orange-700 p-2 rounded-lg hover:bg-orange-50 transition-colors"
-                                title="Unassign Quiz"
+                                title="Unassign"
                               >
                                 <XCircle className="w-4 h-4" />
                               </button>
@@ -1048,11 +1048,11 @@ export default function QuizTakersClient({ initialQuizTakers, quizzes, questionS
                 {filteredQuizTakers.length === 0 ? (
                   <div className="px-4 py-12 text-center">
                     <Users className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                    <p className="text-gray-500 font-medium">No quiz takers found</p>
+                    <p className="text-gray-500 font-medium">No students found</p>
                     <p className="text-sm text-gray-400 mt-1">
                       {searchTerm || activeFilterCount > 0 
                         ? 'Try adjusting your filters' 
-                        : 'Add your first quiz taker to get started'}
+                        : 'Add your first student to get started'}
                     </p>
                   </div>
                 ) : (
@@ -1114,7 +1114,7 @@ export default function QuizTakersClient({ initialQuizTakers, quizzes, questionS
                               </span>
                             </div>
                             <div className="flex items-center justify-between">
-                              <span className="text-gray-500">Assigned Quizzes:</span>
+                              <span className="text-gray-500">Assigned Exams:</span>
                               <span className="font-medium">
                                 {taker.assignedQuizzes?.length || 0}
                               </span>
@@ -1140,7 +1140,7 @@ export default function QuizTakersClient({ initialQuizTakers, quizzes, questionS
                               setShowUnassignModal(true);
                             }}
                             className="text-orange-600 hover:text-orange-700 p-2 rounded-lg hover:bg-orange-50 transition-colors flex-shrink-0"
-                            title="Unassign Quiz"
+                            title="Unassign"
                           >
                             <XCircle className="w-4 h-4" />
                           </button>
@@ -1221,7 +1221,7 @@ export default function QuizTakersClient({ initialQuizTakers, quizzes, questionS
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Question Set Combination * (Select exactly 4)
+                  Subject Combination * (Select exactly 4)
                 </label>
                 <p className="text-xs text-gray-500 mb-3">
                   Selected: {selectedQuestionSets.length}/4
@@ -1288,7 +1288,7 @@ export default function QuizTakersClient({ initialQuizTakers, quizzes, questionS
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl p-6 w-full max-w-md">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-xl font-semibold">Import Quiz Takers</h3>
+              <h3 className="text-xl font-semibold">Import Students</h3>
               <button
                 onClick={() => {
                   setShowImportModal(false);
@@ -1347,7 +1347,7 @@ export default function QuizTakersClient({ initialQuizTakers, quizzes, questionS
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl p-6 w-full max-w-md">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-xl font-semibold">Assign Quiz</h3>
+              <h3 className="text-xl font-semibold">Assign Exam</h3>
               <button
                 onClick={() => {
                   setShowAssignModal(false);
@@ -1360,12 +1360,12 @@ export default function QuizTakersClient({ initialQuizTakers, quizzes, questionS
             </div>
             
             <p className="text-sm text-gray-600 mb-4">
-              Select a quiz to assign to {selectedTakers.length} quiz taker(s)
+              Select an exam to assign to {selectedTakers.length} student(s)
             </p>
             
             {compatibleQuizzes.length === 0 && selectedTakers.length > 0 ? (
               <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg text-yellow-800 text-sm">
-                No compatible quizzes found. Selected quiz takers have different question set combinations.
+                No compatible exams found. Selected students have different subject combinations.
               </div>
             ) : (
               <select
@@ -1374,10 +1374,10 @@ export default function QuizTakersClient({ initialQuizTakers, quizzes, questionS
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg mb-4 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 disabled={isSubmitting}
               >
-                <option value="">Select a quiz...</option>
+                <option value="">Select an exam...</option>
                 {compatibleQuizzes.map((quiz) => (
                   <option key={quiz._id} value={quiz._id}>
-                    {quiz.settings.title || `Untitled Quiz (${quiz._id.slice(0, 8)})`}
+                    {quiz.settings.title || `Untitled Exam (${quiz._id.slice(0, 8)})`}
                   </option>
                 ))}
               </select>
@@ -1411,7 +1411,7 @@ export default function QuizTakersClient({ initialQuizTakers, quizzes, questionS
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl p-6 w-full max-w-md">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-xl font-semibold">Unassign Quiz</h3>
+              <h3 className="text-xl font-semibold">Unassign Exam</h3>
               <button
                 onClick={() => {
                   setShowUnassignModal(false);
@@ -1424,12 +1424,12 @@ export default function QuizTakersClient({ initialQuizTakers, quizzes, questionS
             </div>
             
             <p className="text-sm text-gray-600 mb-4">
-              Select a quiz to unassign from {selectedTakers.length} quiz taker(s)
+              Select an exam to unassign from {selectedTakers.length} student(s)
             </p>
             
             {assignedQuizzesForUnassign.length === 0 ? (
               <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg text-yellow-800 text-sm">
-                No assigned quizzes found for the selected quiz takers.
+                No assigned exams found for the selected students.
               </div>
             ) : (
               <select
@@ -1438,7 +1438,7 @@ export default function QuizTakersClient({ initialQuizTakers, quizzes, questionS
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg mb-4 focus:outline-none focus:ring-2 focus:ring-orange-500"
                 disabled={isSubmitting}
               >
-                <option value="">Select a quiz to unassign...</option>
+                <option value="">Select an exam to unassign...</option>
                 {assignedQuizzesForUnassign.map((quiz) => (
                   <option key={quiz.id} value={quiz.id}>
                     {quiz.title} ({quiz.count} of {selectedTakers.length} selected)
