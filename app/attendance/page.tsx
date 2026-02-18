@@ -7,7 +7,7 @@ const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:5004/api';
 
 async function getSessions(token: string, date: string) {
   try {
-    const response = await fetch(`${BACKEND_URL}/attendance/admin/sessions?date=${date}`, {
+    const response = await fetch(`/api/attendance/sessions/${date}`, {
       headers: {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json',
@@ -21,6 +21,7 @@ async function getSessions(token: string, date: string) {
     }
 
     const data = await response.json();
+    console.log('Fetched sessions data:', data);
     return data;
   } catch (error) {
     console.error('Error fetching sessions:', error);

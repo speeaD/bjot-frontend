@@ -14,6 +14,7 @@ import {
   getDepartmentColor,
 } from '../lib/utils/attendance-utils';
 import Sidebar from './Sidebar';
+import { Upload } from 'lucide-react';
 
 interface DailyDashboardClientProps {
   initialSessions: Record<Department, AttendanceSession[]> | null;
@@ -46,7 +47,7 @@ export default function DailyDashboardClient({
     try {
       const response = await adminApi.getSessionsForDate(selectedDate);
       console.log("Fetched sessions for date", selectedDate, ":", response);
-      setSessions((response.data as Record<Department, AttendanceSession[]>) || { Sciences: [], Arts: [], Commercial: [] });
+      setSessions(response.data);
     } catch (err: any) {
       setError(err.message || 'Failed to load sessions');
     } finally {
@@ -66,7 +67,7 @@ export default function DailyDashboardClient({
   useEffect(() => {
     const interval = setInterval(() => {
       loadSessions();
-    }, 30000);
+    }, 300000);
 
     return () => clearInterval(interval);
   }, [selectedDate, loadSessions]);
@@ -110,6 +111,7 @@ export default function DailyDashboardClient({
   };
 
   const SessionCard = ({ session }: { session: AttendanceSession }) => {
+    console.log('Rendering session card for session:', session);
     const isWindowOpen = session.attendanceWindow.isOpen;
     const timeRemaining = isWindowOpen && session.attendanceWindow.openedAt
       ? getTimeRemaining(session.attendanceWindow.openedAt, session.attendanceWindow.durationMinutes)
@@ -298,10 +300,22 @@ export default function DailyDashboardClient({
 
           {/* Main Content */}
           <div className="col-span-9">
-            <div className="mb-8">
-              <h1 className="text-3xl font-bold text-gray-900 mb-2">Attendance</h1>
-              <p className="text-gray-600">Manage attendance sessions and monitor real-time participation</p>
-            </div>
+            <div className="flex items-center justify-between mb-8">
+                            <div>
+                                <h1 className="text-3xl font-bold text-gray-900">Attendance</h1>
+                                <p className="text-gray-600 mt-1">Manage attendance for your classes</p>
+                            </div>
+                            <div className="flex gap-3">
+                               
+                                <button
+                                    onClick={() => router.push('/schedules')}
+                                    className="flex items-center gap-2 px-6 py-2 bg-green-700 text-white rounded-lg hover:bg-green-700"
+                                >
+                               
+                                    Create Schedules
+                                </button>
+                            </div>
+                        </div>
 
             {/* Date Selector */}
             <div className="mb-6 flex items-center space-x-4">

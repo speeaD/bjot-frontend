@@ -43,10 +43,21 @@ async function fetchApiClient<T>(
 export const adminApi = {
   // Schedule Management
   async createOrUpdateSchedule(scheduleData: CreateScheduleForm) {
-    return fetchApiClient<Schedule>("/attendance/admin/schedules", {
+    const res = await fetch(`/api/attendance/schedules`, {
       method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
       body: JSON.stringify(scheduleData),
     });
+
+    if (!res.ok) {
+      const errorData = await res.json();
+      throw new Error(errorData.message || "Failed to create or update schedule");
+    }
+
+    const data = await res.json();
+    return data;
   },
 
   async getAllSchedules() {
@@ -59,12 +70,14 @@ export const adminApi = {
   },
 
   async getDepartmentSchedule(department: Department) {
-    const data = await fetch(`/api/attendance/schedules/${department}`);
-    if (!data.ok) {
+    const res = await fetch(`/api/attendance/schedules/${department}`);
+    if (!res.ok) {
       throw new Error("Failed to fetch department schedule");
     }
-    const departmentSchedule: Schedule = await data.json();
-    return departmentSchedule;
+
+    const departmentSchedule = await res.json();
+    const schedule = departmentSchedule.data;
+    return schedule;
   },
 
   async addScheduleOverride(overrideData: {
@@ -86,17 +99,25 @@ export const adminApi = {
       throw new Error("Failed to fetch sessions for date");
     }
     const sessionsData = await data.json();
-    return sessionsData;
+    return sessionsData.data;
   },
 
   async createSessionsFromSchedule(department: Department, date: string) {
-    return fetchApiClient<AttendanceSession[]>(
-      "/attendance/admin/sessions/create",
-      {
-        method: "POST",
-        body: JSON.stringify({ department, date }),
+    const res = await fetch(`/api/attendance/sessions/create`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
       },
-    );
+      body: JSON.stringify({ department, date }),
+    });
+
+    if (!res.ok) {
+      const errorData = await res.json();
+      throw new Error(errorData.message || "Failed to create sessions from schedule");
+    }
+
+    const data = await res.json();
+    return data;
   },
 
   async openAttendanceWindow(sessionId: string, windowConfig?: OpenWindowForm) {
