@@ -1,9 +1,10 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 
 const BACKEND_URL = process.env.BACKEND_URL || 'https://bjot-backend.vercel.app/api';
 
 export async function GET(
+    request: NextRequest,
   { params }: { params: Promise<{ date: string }> }) {
   try {
     const cookieStore = await cookies();
