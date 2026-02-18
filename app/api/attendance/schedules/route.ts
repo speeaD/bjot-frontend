@@ -20,7 +20,8 @@ export async function GET() {
     }
 
     const data = await response.json();
-    return NextResponse.json({ schedules: data.schedules || [] });
+    console.log("Fetched schedules:", data);
+    return NextResponse.json({ data});
   } catch (error) {
     console.error("Error fetching schedules:", error);
     return NextResponse.json({ schedules: [] }, { status: 500 });

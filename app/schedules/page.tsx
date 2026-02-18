@@ -23,7 +23,9 @@ async function getSchedules(token: string) {
         }
 
         const data = await response.json();
+        console.log('Fetched schedules data:', data);
         return data.data;
+
     } catch (error) {
         console.error('Error fetching schedules:', error);
         return [];

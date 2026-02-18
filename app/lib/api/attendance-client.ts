@@ -76,6 +76,7 @@ export const adminApi = {
     }
 
     const departmentSchedule = await res.json();
+    console.log(`Fetched schedule for ${department}:`, departmentSchedule);
     const schedule = departmentSchedule.data;
     return schedule;
   },
@@ -121,29 +122,53 @@ export const adminApi = {
   },
 
   async openAttendanceWindow(sessionId: string, windowConfig?: OpenWindowForm) {
-    return fetchApiClient<AttendanceSession>(
-      `/attendance/admin/sessions/${sessionId}/open`,
-      {
-        method: "PATCH",
-        body: JSON.stringify(windowConfig || {}),
+    const res = await fetch(`/api/attendance/sessions/s/${sessionId}/open`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
       },
-    );
+      body: JSON.stringify(windowConfig || {}),
+    });
+
+    if (!res.ok) {
+      const errorData = await res.json();
+      console.error('Failed to open attendance window:', errorData);
+      throw new Error(errorData.message || "Failed to open attendance window");
+    }
+
+    const data = await res.json();
+    console.log('Attendance window opened successfully:', data);
+    return data;
   },
 
   async closeAttendanceWindow(sessionId: string) {
-    return fetchApiClient<AttendanceSession>(
-      `/attendance/admin/sessions/${sessionId}/close`,
-      {
-        method: "PATCH",
+    const res = await fetch(`/api/attendance/sessions/s/${sessionId}/close`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
       },
-    );
+      body: JSON.stringify({}),
+    });
+
+    if (!res.ok) {
+      const errorData = await res.json();
+      console.error('Failed to close attendance window:', errorData);
+      throw new Error(errorData.message || "Failed to close attendance window");
+    }
+
+    const data = await res.json();
+    console.log('Attendance window closed successfully:', data);
+    return data;
   },
 
   // Attendance Records
   async getSessionAttendance(sessionId: string) {
-    return fetchApiClient<SessionAttendanceData>(
-      `/attendance/admin/sessions/${sessionId}/attendance`,
-    );
+    const res = await fetch(`/api/attendance/sessions/s/${sessionId}/attendance`);
+    if (!res.ok) {
+      throw new Error("Failed to fetch session attendance");
+    }
+    const attendanceData = await res.json();
+    return attendanceData.data as SessionAttendanceData;
   },
 
   async manuallyMarkAttendance(

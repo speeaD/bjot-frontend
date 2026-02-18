@@ -86,27 +86,47 @@ export default function DailyDashboardClient({
   };
 
   const handleOpenWindow = async (sessionId: string) => {
+    console.log('Attempting to open attendance window for session:', sessionId);
+    setError('');
+    setSuccessMessage('');
+    
     try {
-      await adminApi.openAttendanceWindow(sessionId, {
+      const response = await adminApi.openAttendanceWindow(sessionId, {
         durationMinutes: 30,
         bufferMinutes: 15,
       });
+      console.log('Open window response:', response);
       setSuccessMessage('Attendance window opened');
       loadSessions();
       setTimeout(() => setSuccessMessage(''), 3000);
     } catch (err: any) {
+      console.error('Open window error:', err);
       setError(err.message || 'Failed to open window');
+      // Log more details for debugging
+      if (err.response) {
+        console.error('Error response:', err.response);
+      }
     }
   };
 
   const handleCloseWindow = async (sessionId: string) => {
+    console.log('Attempting to close attendance window for session:', sessionId);
+    setError('');
+    setSuccessMessage('');
+    
     try {
-      await adminApi.closeAttendanceWindow(sessionId);
+      const response = await adminApi.closeAttendanceWindow(sessionId);
+      console.log('Close window response:', response);
       setSuccessMessage('Attendance window closed');
       loadSessions();
       setTimeout(() => setSuccessMessage(''), 3000);
     } catch (err: any) {
+      console.error('Close window error:', err);
       setError(err.message || 'Failed to close window');
+      // Log more details for debugging
+      if (err.response) {
+        console.error('Error response:', err.response);
+      }
     }
   };
 

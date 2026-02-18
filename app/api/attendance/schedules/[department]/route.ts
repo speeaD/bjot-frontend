@@ -19,11 +19,12 @@ export async function GET(
     });
 
     if (!response.ok) {
+      console.error(`Failed to fetch schedule for department ${department}:`, response.statusText);
       throw new Error("Failed to fetch schedules");
     }
 
     const data = await response.json();
-    return NextResponse.json({ schedules: data.schedules || [] });
+    return NextResponse.json({ data });
   } catch (error) {
     console.error("Error fetching schedules:", error);
     return NextResponse.json({ schedules: [] }, { status: 500 });
