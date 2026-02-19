@@ -168,7 +168,8 @@ export const adminApi = {
       throw new Error("Failed to fetch session attendance");
     }
     const attendanceData = await res.json();
-    return attendanceData.data as SessionAttendanceData;
+    console.log(`Fetched attendance for session ${sessionId}:`, attendanceData);
+    return attendanceData.data.data as SessionAttendanceData;
   },
 
   async manuallyMarkAttendance(

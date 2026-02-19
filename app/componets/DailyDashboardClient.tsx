@@ -234,7 +234,7 @@ export default function DailyDashboardClient({
             </button>
           )}
           <button
-            onClick={() => window.location.href = `/admin/attendance/sessions/${session._id}`}
+            onClick={() => window.location.href = `/attendance/sessions/${session._id}`}
             className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm font-medium"
           >
             View Details

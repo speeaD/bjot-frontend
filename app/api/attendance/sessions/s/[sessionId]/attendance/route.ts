@@ -10,13 +10,13 @@ export async function GET(
     const cookieStore = await cookies();
     const token = cookieStore.get("auth-token")?.value;
     const {sessionId }: { sessionId: string } = await params;
-    const body = await request.json();
+
     const response = await fetch(`${BACKEND_URL}/attendance/admin/sessions/${sessionId}/attendance`, {
+      method: "GET",
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${token}`,
       },
-      body: JSON.stringify({body}),
       credentials: 'include',
       cache: "no-store",
     });
