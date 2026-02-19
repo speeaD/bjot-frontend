@@ -61,15 +61,18 @@ export default function DailyDashboardClient({
       // Update URL
       router.push(`/attendance?date=${selectedDate}`);
     }
+    
   }, [selectedDate, loadSessions, router, initialDate]);
 
   // Poll for updates every 30 seconds
   useEffect(() => {
     const interval = setInterval(() => {
       loadSessions();
+      
     }, 300000);
 
     return () => clearInterval(interval);
+    
   }, [selectedDate, loadSessions]);
 
 
@@ -79,7 +82,7 @@ export default function DailyDashboardClient({
       await adminApi.createSessionsFromSchedule(department, selectedDate);
       setSuccessMessage(`Sessions created for ${department}`);
       loadSessions();
-      setTimeout(() => setSuccessMessage(''), 3000);
+      setTimeout(() => setSuccessMessage(''), 30000);
     } catch (err: any) {
       setError(err.message || 'Failed to create sessions');
     }
@@ -98,7 +101,7 @@ export default function DailyDashboardClient({
       console.log('Open window response:', response);
       setSuccessMessage('Attendance window opened');
       loadSessions();
-      setTimeout(() => setSuccessMessage(''), 3000);
+      setTimeout(() => setSuccessMessage(''), 30000);
     } catch (err: any) {
       console.error('Open window error:', err);
       setError(err.message || 'Failed to open window');
@@ -119,7 +122,7 @@ export default function DailyDashboardClient({
       console.log('Close window response:', response);
       setSuccessMessage('Attendance window closed');
       loadSessions();
-      setTimeout(() => setSuccessMessage(''), 3000);
+      setTimeout(() => setSuccessMessage(''), 30000);
     } catch (err: any) {
       console.error('Close window error:', err);
       setError(err.message || 'Failed to close window');

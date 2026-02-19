@@ -28,7 +28,7 @@ async function fetchSessionDetails(sessionId: string, token: string) {
     }
 
     const data = await response.json();
-    return { data: data.data, error: null };
+    return { data: data.data};
   } catch (error) {
     console.error("Error fetching session details:", error);
     return { error: "Failed to fetch session details" };
