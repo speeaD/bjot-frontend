@@ -178,8 +178,8 @@ export const adminApi = {
     status: "present" | "absent" | "excused",
     notes?: string,
   ) {
-    return fetchApiClient(
-      `/attendance/admin/sessions/${sessionId}/students/${studentId}/mark`,
+    return fetch(
+      `/api/attendance/sessions/s/${sessionId}/students/${studentId}`,
       {
         method: "POST",
         body: JSON.stringify({ status, notes }),
