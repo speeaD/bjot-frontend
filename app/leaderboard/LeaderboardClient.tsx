@@ -64,7 +64,7 @@ interface Props {
   initialLeaderboard: LeaderboardEntry[];
 }
 
-export default function LeaderboardClient({ submissions, quizzes, initialLeaderboard }: Props) {
+export default function LeaderboardClient({ submissions, quizzes }: Props) {
   const [viewMode, setViewMode] = useState<"global" | "per-quiz">("global");
   const [selectedQuiz, setSelectedQuiz] = useState<string>("");
   const [selectedQuestionSet, setSelectedQuestionSet] = useState<number | null>(null);

@@ -160,7 +160,7 @@ function buildQuestionMap(quizzes: Quiz[]) {
     return questionMap;
 }
 
-export default function AnalyticsClient({ submissions, quizzes, initialAnalytics }: Props) {
+export default function AnalyticsClient({ submissions, quizzes }: Props) {
     const [selectedQuiz, setSelectedQuiz] = useState<string>("all");
     const [dateRange, setDateRange] = useState<string>("30d");
 
