@@ -74,7 +74,7 @@ export default function LeaderboardClient({ submissions, quizzes, initialLeaderb
   const leaderboard = useMemo(() => {
     // Filter by quiz if in per-quiz mode
     let filteredSubmissions = viewMode === "per-quiz" && selectedQuiz
-      ? submissions.filter(s => s.quizId._id === selectedQuiz)
+      ? submissions.filter(s => s.quizId?._id === selectedQuiz)
       : submissions;
 
     // Filter by time
