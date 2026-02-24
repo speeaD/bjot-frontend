@@ -174,7 +174,7 @@ export default function AnalyticsClient({ submissions, quizzes, initialAnalytics
         // Filter by quiz
         let filteredSubmissions = selectedQuiz === "all"
             ? submissions
-            : submissions.filter(s => s.quizId._id === selectedQuiz);
+            : submissions.filter(s => s.quizId?._id === selectedQuiz);
 
         // Filter by date range
         const now = new Date();
@@ -243,8 +243,8 @@ export default function AnalyticsClient({ submissions, quizzes, initialAnalytics
         // Quiz Performance
         const quizMap = new Map();
         filteredSubmissions.forEach(submission => {
-            const quizId = submission.quizId._id;
-            const quizTitle = submission.quizId.settings?.title || 'Untitled Quiz';
+            const quizId = submission.quizId?._id;
+            const quizTitle = submission.quizId?.settings?.title || 'Untitled Quiz';
 
             if (!quizMap.has(quizId)) {
                 quizMap.set(quizId, {

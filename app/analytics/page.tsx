@@ -180,8 +180,8 @@ function calculateAnalytics(
   // Quiz Performance
   const quizPerformanceMap = new Map();
   filteredSubmissions.forEach(submission => {
-    const quizId = submission.quizId._id;
-    const quizTitle = submission.quizId.settings?.title || 'Untitled Quiz';
+    const quizId = submission.quizId?._id;
+    const quizTitle = submission.quizId?.settings?.title || 'Untitled Quiz';
     
     if (!quizPerformanceMap.has(quizId)) {
       quizPerformanceMap.set(quizId, {
