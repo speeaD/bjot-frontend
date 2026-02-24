@@ -251,15 +251,15 @@ export default function QuizTakersClient({ initialQuizTakers, quizzes, questionS
 
     selectedTakerObjects.forEach(taker => {
       taker.assignedQuizzes?.forEach((quiz: any) => {
-        const title = quiz.quizId.settings?.title || `Untitled Quiz (${quiz._id.slice(0, 8)})`;
-        const current = quizCountMap.get(quiz.quizId._id);
+        const title = quiz.quizId?.settings?.title || `Untitled Quiz (${quiz._id.slice(0, 8)})`;
+        const current = quizCountMap.get(quiz.quizId?._id);
         if (current) {
-          quizCountMap.set(quiz.quizId._id, {
+          quizCountMap.set(quiz.quizId?._id, {
             title,
             count: current.count + 1
           });
         } else {
-          quizCountMap.set(quiz.quizId._id, {
+          quizCountMap.set(quiz.quizId?._id, {
             title,
             count: 1
           });
