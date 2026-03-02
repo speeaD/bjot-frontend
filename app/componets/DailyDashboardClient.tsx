@@ -337,6 +337,13 @@ export default function DailyDashboardClient({
                                
                                     Create Schedules
                                 </button>
+                                <button
+                                    onClick={() => router.push('/attendance/analytics')}
+                                    className="flex items-center gap-2 px-6 py-2 bg-blue-700 text-white rounded-lg hover:bg-blue-700"
+                                >
+                               
+                                    View Analytics
+                                </button>
                             </div>
                         </div>
 

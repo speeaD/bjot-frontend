@@ -3,7 +3,6 @@ import { formatDateForApi, getTodayDate } from '../lib/utils/attendance-utils';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 
-const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:5004/api';
 
 async function getSessions(token: string, date: string) {
   try {
