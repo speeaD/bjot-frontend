@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Department } from '../../types/global';
 import { formatShortDate, getDepartmentColor } from '../../lib/utils/attendance-utils';
-import { set } from 'zod';
 
 interface StudentAnalytics {
   studentId: string;
@@ -53,6 +52,7 @@ export default function StudentAnalyticsClient({
 }: StudentAnalyticsClientProps) {
   const router = useRouter();
   const [data, setData] = useState<AnalyticsData | null>(initialData);
+  console.log('Initial analytics data:', initialData);
   const [selectedDepartment, setSelectedDepartment] = useState<Department | ''>(
     (initialDepartment as Department) || ''
   );
@@ -67,47 +67,118 @@ export default function StudentAnalyticsClient({
     setData(null);
     setIsLoading(true);
     setSelectedDepartment(dept);
-    const params = new URLSearchParams();
-    params.set('department', dept);
-    if (startDate) params.set('startDate', startDate);
-    if (endDate) params.set('endDate', endDate);
-    try{
-        const response = await fetch(`/api/attendance/analytics/department/${dept}`, {
-          headers: {        
+    setError('');
+    
+    try {
+      const response = await fetch(`/api/attendance/analytics/department/${dept}`, {
+        headers: {        
+          'Content-Type': 'application/json',
+        },
+        cache: 'no-store',
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch department analytics');
+      }
+      
+      const result = await response.json();
+      console.log('Department analytics result:', result);
+      setData(result.data);
+      setIsLoading(false);
+      
+      // Update URL
+      const params = new URLSearchParams();
+      params.set('department', dept);
+      router.push(`/attendance/analytics?${params.toString()}`);
+      
+    } catch(err) {
+      console.error('Error fetching department analytics:', err);
+      setIsLoading(false);
+      setError('Failed to load analytics data. Please try again.');
+    }
+  };
+
+  const handleDateFilter = async () => {
+    if (!selectedDepartment) return;
+    
+    setIsLoading(true);
+    setError('');
+    
+    try {
+      // Build query string with date filters
+      const params = new URLSearchParams();
+      if (startDate) params.append('startDate', startDate);
+      if (endDate) params.append('endDate', endDate);
+      
+      const queryString = params.toString();
+      const url = `/api/attendance/analytics/department/${selectedDepartment}${queryString ? `?${queryString}` : ''}`;
+      
+      console.log('Fetching analytics with dates:', { startDate, endDate, url });
+      
+      const response = await fetch(url, {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        cache: 'no-store',
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch department analytics');
+      }
+      
+      const result = await response.json();
+      console.log('Analytics result with dates:', result);
+      
+      setData(result.data);
+      setIsLoading(false);
+      
+      // Update URL
+      const urlParams = new URLSearchParams();
+      urlParams.set('department', selectedDepartment);
+      if (startDate) urlParams.set('startDate', startDate);
+      if (endDate) urlParams.set('endDate', endDate);
+      router.push(`/attendance/analytics?${urlParams.toString()}`);
+      
+    } catch (err) {
+      console.error('Error fetching analytics with date filter:', err);
+      setIsLoading(false);
+      setError('Failed to load analytics data. Please try again.');
+    }
+  };
+
+  const handleResetFilters = async () => {
+    setStartDate('');
+    setEndDate('');
+    
+    if (selectedDepartment) {
+      setIsLoading(true);
+      setError('');
+      
+      try {
+        // Fetch without date filters
+        const response = await fetch(`/api/attendance/analytics/department/${selectedDepartment}`, {
+          headers: {
             'Content-Type': 'application/json',
           },
           cache: 'no-store',
         });
-        if (!response.ok) {          throw new Error('Failed to fetch department analytics');
+        
+        if (!response.ok) {
+          throw new Error('Failed to fetch department analytics');
         }
+        
         const result = await response.json();
-        setData(result.data.data);
+        setData(result.data);
         setIsLoading(false);
-        setError('');
-    }
-    catch(err) {
-        console.error('Error fetching department analytics:', err);
+        
+        // Update URL without date params
+        router.push(`/attendance/analytics?department=${selectedDepartment}`);
+        
+      } catch (err) {
+        console.error('Error resetting filters:', err);
         setIsLoading(false);
-        setError('Failed to load analytics data. Please try again.');
-    }
-    router.push(`/attendance/analytics?${params.toString()}`);
-  };
-
-  const handleDateFilter = () => {
-    if (!selectedDepartment) return;
-    
-    const params = new URLSearchParams();
-    params.set('department', selectedDepartment);
-    if (startDate) params.set('startDate', startDate);
-    if (endDate) params.set('endDate', endDate);
-    router.push(`/attendance/analytics?${params.toString()}`);
-  };
-
-  const handleResetFilters = () => {
-    setStartDate('');
-    setEndDate('');
-    if (selectedDepartment) {
-      router.push(`/attendance/analytics?department=${selectedDepartment}`);
+        setError('Failed to reset filters. Please try again.');
+      }
     }
   };
 
@@ -116,7 +187,7 @@ export default function StudentAnalyticsClient({
   };
 
   // Filter students based on search and status
-  const filteredStudents = data?.students.filter(student => {
+  const filteredStudents = (data?.students || []).filter(student => {
     // Search filter
     const matchesSearch = !searchQuery || 
       student.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -129,7 +200,7 @@ export default function StudentAnalyticsClient({
       (filterStatus === 'excellent' && student.attendanceRate >= 80);
     
     return matchesSearch && matchesStatus;
-  }) || [];
+  });
 
   const getAttendanceColor = (rate: number) => {
     if (rate >= 90) return 'text-green-600';
@@ -184,6 +255,9 @@ export default function StudentAnalyticsClient({
                 <button
                   onClick={() => {
                     setSelectedDepartment('');
+                    setData(null);
+                    setStartDate('');
+                    setEndDate('');
                     router.push('/attendance/analytics');
                   }}
                   className="text-blue-600 hover:text-blue-700 text-sm"
@@ -220,20 +294,31 @@ export default function StudentAnalyticsClient({
               <div className="flex items-end space-x-2">
                 <button
                   onClick={handleDateFilter}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  disabled={isLoading}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Apply Filter
+                  {isLoading ? 'Loading...' : 'Apply Filter'}
                 </button>
                 {(startDate || endDate) && (
                   <button
                     onClick={handleResetFilters}
-                    className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                    disabled={isLoading}
+                    className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     Reset
                   </button>
                 )}
               </div>
             </div>
+            
+            {/* Show active date range */}
+            {data?.dateRange && (data.dateRange.startDate || data.dateRange.endDate) && (
+              <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                <p className="text-sm text-blue-800">
+                  📅 Showing data from {data.dateRange.startDate ? new Date(data.dateRange.startDate).toLocaleDateString() : 'beginning'} to {data.dateRange.endDate ? new Date(data.dateRange.endDate).toLocaleDateString() : 'now'}
+                </p>
+              </div>
+            )}
           </div>
 
           {/* Error Message */}
@@ -244,13 +329,13 @@ export default function StudentAnalyticsClient({
           )}
 
           {/* Statistics Cards */}
-          {data && (
+          {data  &&  (
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
               <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm text-gray-600 mb-1">Total Students</p>
-                    <p className="text-3xl font-bold text-gray-900">{data.statistics.totalStudents}</p>
+                    <p className="text-3xl font-bold text-gray-900">{data.statistics?.totalStudents}</p>
                   </div>
                   <div className="h-12 w-12 bg-blue-100 rounded-lg flex items-center justify-center">
                     <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">

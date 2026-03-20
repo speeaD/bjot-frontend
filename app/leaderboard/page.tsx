@@ -122,8 +122,9 @@ function calculateLeaderboard(
   
   // Calculate averages and prepare leaderboard entries
   const entries = Array.from(takerMap.values()).map((taker) => {
+    console.log(`${taker}`);
     const entry: any = {
-      email: taker.email,
+      email: taker.name,
       accessCode: taker.accessCode,
       averageScore: taker.totalScore / taker.totalQuizzes,
       totalQuizzes: taker.totalQuizzes,

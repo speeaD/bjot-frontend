@@ -273,7 +273,7 @@ export default function LeaderboardClient({ submissions, quizzes }: Props) {
                         : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                     }`}
                   >
-                    Per Quiz
+                    Per Exam
                   </button>
                 </div>
 
@@ -284,8 +284,8 @@ export default function LeaderboardClient({ submissions, quizzes }: Props) {
                       value={selectedQuiz}
                       onChange={(e) => setSelectedQuiz(e.target.value)}
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option value="">Select a quiz...</option>
+                    >``
+                      <option value="">Select an exam...</option>
                       {quizzes.map((quiz) => (
                         <option key={quiz._id} value={quiz._id}>
                           {quiz.settings.title}
@@ -300,7 +300,7 @@ export default function LeaderboardClient({ submissions, quizzes }: Props) {
                   <div className="flex items-center gap-2 mb-3">
                     <Target className="w-5 h-5 text-blue-500" />
                     <span className="text-sm font-medium text-gray-700">
-                      Filter by Question Set:
+                      Filter by Subject (Question Set):
                     </span>
                   </div>
                   <div className="flex gap-2 flex-wrap">
@@ -330,7 +330,7 @@ export default function LeaderboardClient({ submissions, quizzes }: Props) {
                   </div>
                   {selectedQuestionSet !== null && (
                     <div className="mt-2 text-xs text-gray-500">
-                      Showing performance for Question Set {selectedQuestionSet} only
+                      Showing performance for Subject {selectedQuestionSet}) only
                     </div>
                   )}
                 </div>
@@ -418,7 +418,7 @@ export default function LeaderboardClient({ submissions, quizzes }: Props) {
                   Top 50 Rankings
                   {selectedQuestionSet !== null && (
                     <span className="text-sm font-normal text-gray-500 ml-2">
-                      (Question Set {selectedQuestionSet})
+                      (Subject {selectedQuestionSet})
                     </span>
                   )}
                 </h3>
@@ -431,7 +431,7 @@ export default function LeaderboardClient({ submissions, quizzes }: Props) {
                             Rank
                           </th>
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Quiz Taker
+                            Student
                           </th>
                           {selectedQuestionSet === null ? (
                             <>
@@ -439,7 +439,7 @@ export default function LeaderboardClient({ submissions, quizzes }: Props) {
                                 Avg Score
                               </th>
                               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Quizzes Taken
+                                Exams Taken
                               </th>
                               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                 Total Points

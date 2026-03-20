@@ -3,14 +3,16 @@ import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import QuizTakersClient from './QuizTakerClient';
 
-const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:5004/api';
+const BACKEND_URL = process.env.BACKEND_URL || 'https://bjot-backend-nine.vercel.app/api';
 
 async function getQuizTakers(token: string) {
   try {
     const response = await fetch(`${BACKEND_URL}/admin/quiztakers`, {
       headers: {
         'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
       },
+      method: 'GET',
       cache: 'no-store',
     });
 
@@ -31,7 +33,9 @@ async function getQuizzes(token: string) {
     const response = await fetch(`${BACKEND_URL}/quiz`, {
       headers: {
         'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
       },
+      method: 'GET',
       cache: 'no-store',
     });
 
@@ -52,7 +56,9 @@ async function getQuestionSets(token: string) {
     const response = await fetch(`${BACKEND_URL}/questionset`, {
       headers: {
         'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
       },
+      method: 'GET',
       cache: 'no-store',
     });
 
