@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 'use client';
 
 import { RefreshCw } from "lucide-react";
@@ -36,6 +35,7 @@ interface QuestionSetsSelectorProps {
   onBatchChange: (index: number, batchNumber: number | null) => void;
   isLoading: boolean;
   onRefresh: () => void;
+  examType: 'multi-subject' | 'single-subject';
 }
 
 export default function QuestionSetsSelector({
@@ -46,12 +46,12 @@ export default function QuestionSetsSelector({
   onBatchChange,
   isLoading,
   onRefresh,
+  examType,
 }: QuestionSetsSelectorProps) {
-  
+
   const getAvailableQuestionSets = (currentIndex: number) => {
-    // Filter out already selected question sets (except current)
     return availableQuestionSets.filter(qs => {
-      const isSelected = selectedQuestionSetIds.some((id, idx) => 
+      const isSelected = selectedQuestionSetIds.some((id, idx) =>
         id === qs._id && idx !== currentIndex
       );
       return !isSelected && qs.isActive;
@@ -78,7 +78,7 @@ export default function QuestionSetsSelector({
       <div key={index} className="bg-white rounded-lg shadow p-6 border-2 border-gray-200">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-semibold text-gray-800">
-            Question Set {index + 1}
+            {examType === 'single-subject' ? 'Question Set' : `Question Set ${index + 1}`}
           </h3>
           {selectedSet && (
             <span className="px-3 py-1 bg-green-100 text-green-700 rounded-full text-sm font-medium">
@@ -108,7 +108,7 @@ export default function QuestionSetsSelector({
           </select>
         </div>
 
-        {/* Batch Selector - Show only if question set uses batches */}
+        {/* Batch Selector — only shown if the selected set uses batches */}
         {selectedSet?.usesBatches && (
           <div className="mb-4">
             <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -138,9 +138,8 @@ export default function QuestionSetsSelector({
         {selectedSet && (
           <div className="mt-4 p-4 bg-gray-50 rounded-lg">
             <h4 className="font-medium text-gray-800 mb-2">{selectedSet.title}</h4>
-            
+
             {selectedSet.usesBatches && batchSelection?.batchNumber ? (
-              // Show batch details
               (() => {
                 const batch = selectedSet.batches?.find(b => b.batchNumber === batchSelection.batchNumber);
                 return batch ? (
@@ -163,7 +162,6 @@ export default function QuestionSetsSelector({
                 );
               })()
             ) : (
-              // Show question set details (legacy)
               <div className="space-y-1 text-sm text-gray-600">
                 <div className="flex items-center justify-between">
                   <span>Questions:</span>
@@ -196,12 +194,20 @@ export default function QuestionSetsSelector({
     );
   };
 
+  // Derive the slot indices from the examType — single-subject renders only slot 0
+  const slotIndices = examType === 'single-subject' ? [0] : [0, 1, 2, 3];
+
   return (
     <div>
+      {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
           <h2 className="text-2xl font-bold text-gray-800">Select Question Sets</h2>
-          <p className="text-gray-600 mt-1">Choose exactly 4 question sets for your quiz</p>
+          <p className="text-gray-600 mt-1">
+            {examType === 'single-subject'
+              ? 'Choose 1 question set for this single-subject exam'
+              : 'Choose exactly 4 question sets for your quiz'}
+          </p>
         </div>
         <button
           onClick={onRefresh}
@@ -213,11 +219,11 @@ export default function QuestionSetsSelector({
         </button>
       </div>
 
-      {/* Info Banner about Batches */}
+      {/* Info Banner */}
       <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
         <p className="text-sm text-blue-800">
-          <strong>ℹ️ Batch System:</strong> Some question sets may have multiple batches. 
-          If a question set uses batches, you must select which batch to use in this quiz. 
+          <strong>ℹ️ Batch System:</strong> Some question sets may have multiple batches.
+          If a question set uses batches, you must select which batch to use in this quiz.
           This allows you to create different quiz variations using the same question sets.
         </p>
       </div>
@@ -239,12 +245,12 @@ export default function QuestionSetsSelector({
       )}
 
       {!isLoading && availableQuestionSets.length > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {[0, 1, 2, 3].map((index) => renderQuestionSetSelector(index))}
+        <div className={`grid gap-6 ${examType === 'single-subject' ? 'grid-cols-1 max-w-xl' : 'grid-cols-1 md:grid-cols-2'}`}>
+          {slotIndices.map((index) => renderQuestionSetSelector(index))}
         </div>
       )}
 
-      {/* Summary */}
+      {/* Selection Summary */}
       {selectedQuestionSetIds.filter(id => id !== null).length > 0 && (
         <div className="mt-6 p-4 bg-white rounded-lg shadow border-l-4 border-blue-500">
           <h3 className="font-semibold text-gray-800 mb-2">Selection Summary</h3>
@@ -253,16 +259,16 @@ export default function QuestionSetsSelector({
               if (!id) return null;
               const set = getSelectedQuestionSet(index);
               const batch = batchSelections[index];
-              
+
               if (!set) return null;
 
-              let displayText = `${index + 1}. ${set.title}`;
-              
+              let displayText = examType === 'single-subject'
+                ? set.title
+                : `${index + 1}. ${set.title}`;
+
               if (set.usesBatches && batch?.batchNumber) {
                 const batchObj = set.batches?.find(b => b.batchNumber === batch.batchNumber);
-                if (batchObj) {
-                  displayText += ` - ${batchObj.name}`;
-                }
+                if (batchObj) displayText += ` — ${batchObj.name}`;
               }
 
               return (
