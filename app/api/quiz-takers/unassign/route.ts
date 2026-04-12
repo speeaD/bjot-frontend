@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 
-const BACKEND_URL = process.env.BACKEND_URL || 'https://bjot-backend.vercel.app/api';
+const BACKEND_URL = process.env.BACKEND_URL || 'https://bjot-backend-nine.vercel.app/api';
 
 export async function POST(request: NextRequest) {
   try {

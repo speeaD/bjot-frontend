@@ -2,14 +2,14 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { 
-  Search, 
-  UserPlus, 
-  Upload, 
-  Mail, 
-  Trash2, 
-  Send, 
-  X, 
+import {
+  Search,
+  UserPlus,
+  Upload,
+  Mail,
+  Trash2,
+  Send,
+  X,
   XCircle,
   Filter,
   ChevronDown,
@@ -44,6 +44,7 @@ interface Quiz {
   _id: string;
   settings: {
     title: string;
+    examType?: 'multi-subject' | 'single-subject';
   };
   questionSetCombination: string[];
 }
@@ -64,7 +65,7 @@ interface BulkUploadResult {
 
 export default function QuizTakersClient({ initialQuizTakers, quizzes, questionSets }: Props) {
   const router = useRouter();
-  
+
   // UI States
   const [searchTerm, setSearchTerm] = useState("");
   const [showFilterPanel, setShowFilterPanel] = useState(false);
@@ -74,18 +75,18 @@ export default function QuizTakersClient({ initialQuizTakers, quizzes, questionS
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [showUnassignModal, setShowUnassignModal] = useState(false);
   const [showMobileSidebar, setShowMobileSidebar] = useState(false);
-  
+
   // Data States
   const [selectedTakers, setSelectedTakers] = useState<string[]>([]);
   const [quizTakers, setQuizTakers] = useState<QuizTaker[]>(initialQuizTakers);
-  
+
   // Filter States
   const [accountTypeFilter, setAccountTypeFilter] = useState<'all' | 'premium' | 'regular'>('all');
   const [subjectFilter, setSubjectFilter] = useState<string[]>([]);
   const [assignedQuizFilter, setAssignedQuizFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
   const [dateFilter, setDateFilter] = useState<'all' | 'today' | 'week' | 'month'>('all');
-  
+
   // Form states
   const [newEmail, setNewEmail] = useState("");
   const [newName, setNewName] = useState("");
@@ -107,19 +108,19 @@ export default function QuizTakersClient({ initialQuizTakers, quizzes, questionS
   // Get unique subject combinations
   const uniqueCombinations = useMemo(() => {
     const combinations = new Map<string, { ids: string[], titles: string[] }>();
-    
+
     quizTakers.forEach(taker => {
       if (taker.questionSetCombination && taker.questionSetCombination.length > 0) {
         const ids = taker.questionSetCombination.map(qs => qs._id).sort();
         const titles = taker.questionSetCombination.map(qs => qs.title).sort();
         const key = ids.join(',');
-        
+
         if (!combinations.has(key)) {
           combinations.set(key, { ids, titles });
         }
       }
     });
-    
+
     return Array.from(combinations.entries()).map(([key, value]) => ({
       key,
       ids: value.ids,
@@ -131,7 +132,7 @@ export default function QuizTakersClient({ initialQuizTakers, quizzes, questionS
   // Get list of assigned quizzes for filter dropdown
   const assignedQuizzesForFilter = useMemo(() => {
     const quizMap = new Map<string, string>();
-    
+
     quizTakers.forEach(taker => {
       if (taker.assignedQuizzes && taker.assignedQuizzes.length > 0) {
         taker.assignedQuizzes.forEach((quiz: any) => {
@@ -142,7 +143,7 @@ export default function QuizTakersClient({ initialQuizTakers, quizzes, questionS
         });
       }
     });
-    
+
     return Array.from(quizMap.entries()).map(([id, title]) => ({ id, title }));
   }, [quizTakers]);
 
@@ -151,7 +152,7 @@ export default function QuizTakersClient({ initialQuizTakers, quizzes, questionS
     return quizTakers.filter(taker => {
       // Search filter
       const searchLower = searchTerm.toLowerCase();
-      const matchesSearch = 
+      const matchesSearch =
         taker.email.toLowerCase().includes(searchLower) ||
         taker.name?.toLowerCase().includes(searchLower) ||
         taker.accessCode?.toLowerCase().includes(searchLower);
@@ -176,7 +177,7 @@ export default function QuizTakersClient({ initialQuizTakers, quizzes, questionS
           ?.map(qs => qs._id)
           .sort()
           .join(',') || '';
-        
+
         if (!subjectFilter.includes(takerCombination)) {
           return false;
         }
@@ -217,28 +218,39 @@ export default function QuizTakersClient({ initialQuizTakers, quizzes, questionS
     if (selectedTakers.length === 0) return quizzes;
 
     const selectedTakerObjects = quizTakers.filter(t => selectedTakers.includes(t._id));
-    
-    // Get the question set combination of the first selected taker
-    const firstCombination = selectedTakerObjects[0]?.questionSetCombination
-      ?.map(qs => qs._id)
-      .sort();
 
-    if (!firstCombination) return [];
-
-    // Check if all selected takers have the same combination
-    const allSameCombination = selectedTakerObjects.every(taker => {
-      const takerCombination = taker.questionSetCombination
-        ?.map(qs => qs._id)
-        .sort();
-      return JSON.stringify(takerCombination) === JSON.stringify(firstCombination);
-    });
-
-    if (!allSameCombination) return [];
-
-    // Return quizzes that match this combination
     return quizzes.filter(quiz => {
-      const quizCombination = quiz.questionSetCombination.sort();
-      return JSON.stringify(quizCombination) === JSON.stringify(firstCombination);
+      const examType = quiz.settings.examType || 'multi-subject';
+
+      if (examType === 'single-subject') {
+        // The quiz covers exactly one subject — every selected student must offer it
+        const requiredSubjectId = quiz.questionSetCombination[0];
+        if (!requiredSubjectId) return false;
+
+        return selectedTakerObjects.every(taker => {
+          const takerSubjectIds = taker.questionSetCombination?.map(qs => qs._id) || [];
+          return takerSubjectIds.includes(requiredSubjectId);
+        });
+
+      } else {
+        // Multi-subject — all selected students must share the same 4-subject combination
+        // and it must exactly match the quiz's combination
+        const firstCombination = selectedTakerObjects[0]?.questionSetCombination
+          ?.map(qs => qs._id)
+          .sort();
+
+        if (!firstCombination) return false;
+
+        const allSameCombination = selectedTakerObjects.every(taker => {
+          const takerCombination = taker.questionSetCombination?.map(qs => qs._id).sort();
+          return JSON.stringify(takerCombination) === JSON.stringify(firstCombination);
+        });
+
+        if (!allSameCombination) return false;
+
+        const quizCombination = [...quiz.questionSetCombination].sort();
+        return JSON.stringify(quizCombination) === JSON.stringify(firstCombination);
+      }
     });
   }, [selectedTakers, quizTakers, quizzes]);
 
@@ -315,7 +327,7 @@ export default function QuizTakersClient({ initialQuizTakers, quizzes, questionS
   };
 
   const handleSelectTaker = (id: string) => {
-    setSelectedTakers(prev => 
+    setSelectedTakers(prev =>
       prev.includes(id) ? prev.filter(t => t !== id) : [...prev, id]
     );
   };
@@ -340,13 +352,13 @@ export default function QuizTakersClient({ initialQuizTakers, quizzes, questionS
     try {
       setIsSubmitting(true);
       setError(null);
-      
+
       const response = await fetch('/api/quiz-takers/create', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           email: newEmail,
           name: newName || undefined,
           questionSetCombination: selectedQuestionSets
@@ -359,15 +371,15 @@ export default function QuizTakersClient({ initialQuizTakers, quizzes, questionS
       }
 
       const data = await response.json();
-      
+
       setQuizTakers(prev => [data.quizTaker, ...prev]);
       setNewEmail('');
       setNewName('');
       setSelectedQuestionSets([]);
       setShowAddModal(false);
-      
+
       alert(`Premium quiz taker created successfully! Access Code: ${data.quizTaker.accessCode}`);
-      
+
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create student');
@@ -393,7 +405,7 @@ export default function QuizTakersClient({ initialQuizTakers, quizzes, questionS
 
       setQuizTakers(prev => prev.filter(t => t._id !== id));
       setSelectedTakers(prev => prev.filter(t => t !== id));
-      
+
       alert('Student deleted successfully');
       router.refresh();
     } catch (err) {
@@ -417,7 +429,7 @@ export default function QuizTakersClient({ initialQuizTakers, quizzes, questionS
 
       setQuizTakers(prev => prev.filter(t => !selectedTakers.includes(t._id)));
       setSelectedTakers([]);
-      
+
       alert('Students deleted successfully');
       router.refresh();
     } catch (err) {
@@ -441,14 +453,14 @@ export default function QuizTakersClient({ initialQuizTakers, quizzes, questionS
       if (!response.ok) throw new Error('Failed to upload file');
 
       const data = await response.json();
-      
+
       setUploadResults(data.results);
       setShowResultsModal(true);
       setShowImportModal(false);
       setImportFile(null);
-      
+
       router.refresh();
-      
+
       const newTakers = await fetch('/api/quiz-takers').then(r => r.json());
       setQuizTakers(newTakers.quizTakers || []);
     } catch (err) {
@@ -514,7 +526,7 @@ export default function QuizTakersClient({ initialQuizTakers, quizzes, questionS
 
       const newTakers = await fetch('/api/quiz-takers').then(r => r.json());
       setQuizTakers(newTakers.quizTakers || []);
-      
+
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Failed to unassign exam');
     } finally {
@@ -553,12 +565,12 @@ export default function QuizTakersClient({ initialQuizTakers, quizzes, questionS
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({isActive: !currentActive }),
+        body: JSON.stringify({ isActive: !currentActive }),
       });
 
       if (!response.ok) throw new Error('Failed to update status');
 
-      setQuizTakers(prev => prev.map(t => 
+      setQuizTakers(prev => prev.map(t =>
         t._id === id ? { ...t, isActive: !currentActive } : t
       ));
       router.refresh();
@@ -571,8 +583,8 @@ export default function QuizTakersClient({ initialQuizTakers, quizzes, questionS
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 md:py-8">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 md:gap-6">
-         {/* Mobile Sidebar Toggle */}
-          <button 
+          {/* Mobile Sidebar Toggle */}
+          <button
             className="lg:hidden fixed top-4 left-4  p-2 bg-white rounded-lg shadow-md"
             onClick={() => setShowMobileSidebar(true)}
           >
@@ -595,7 +607,7 @@ export default function QuizTakersClient({ initialQuizTakers, quizzes, questionS
                 </div>
                 <Sidebar />
               </div>
-              <div 
+              <div
                 className="flex-1 bg-black/50"
                 onClick={() => setShowMobileSidebar(false)}
               />
@@ -648,7 +660,7 @@ export default function QuizTakersClient({ initialQuizTakers, quizzes, questionS
                     {quizTakers.length}
                   </p>
                 </div>
-                
+
                 <div className="bg-purple-50 rounded-lg p-3 md:p-4">
                   <div className="flex items-center gap-2 mb-1">
                     <Award className="w-4 h-4 text-purple-600" />
@@ -658,7 +670,7 @@ export default function QuizTakersClient({ initialQuizTakers, quizzes, questionS
                     {quizTakers.filter(t => t.accountType === 'premium').length}
                   </p>
                 </div>
-                
+
                 <div className="bg-green-50 rounded-lg p-3 md:p-4">
                   <div className="flex items-center gap-2 mb-1">
                     <Check className="w-4 h-4 text-green-600" />
@@ -668,7 +680,7 @@ export default function QuizTakersClient({ initialQuizTakers, quizzes, questionS
                     {quizTakers.filter(t => t.isActive).length}
                   </p>
                 </div>
-                
+
                 <div className="bg-orange-50 rounded-lg p-3 md:p-4">
                   <div className="flex items-center gap-2 mb-1">
                     <Calendar className="w-4 h-4 text-orange-600" />
@@ -712,10 +724,9 @@ export default function QuizTakersClient({ initialQuizTakers, quizzes, questionS
                     </span>
                   )}
                 </div>
-                <ChevronDown 
-                  className={`w-4 h-4 text-gray-600 transition-transform ${
-                    showFilterPanel ? 'rotate-180' : ''
-                  }`} 
+                <ChevronDown
+                  className={`w-4 h-4 text-gray-600 transition-transform ${showFilterPanel ? 'rotate-180' : ''
+                    }`}
                 />
               </button>
 
@@ -796,7 +807,7 @@ export default function QuizTakersClient({ initialQuizTakers, quizzes, questionS
                 {uniqueCombinations.length > 0 && (
                   <div>
                     <label className="block text-xs font-medium text-gray-700 mb-2">
-                     Subject Combinations
+                      Subject Combinations
                     </label>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-32 overflow-y-auto p-2 bg-gray-50 rounded-lg border border-gray-200">
                       {uniqueCombinations.map(combo => (
@@ -837,7 +848,7 @@ export default function QuizTakersClient({ initialQuizTakers, quizzes, questionS
                   Showing <span className="font-semibold">{filteredQuizTakers.length}</span> of{' '}
                   <span className="font-semibold">{quizTakers.length}</span> students
                 </p>
-                
+
                 {/* Bulk Actions - Only show when items selected */}
                 {selectedTakers.length > 0 && (
                   <div className="flex flex-wrap gap-2">
@@ -924,8 +935,8 @@ export default function QuizTakersClient({ initialQuizTakers, quizzes, questionS
                             <Users className="w-12 h-12 text-gray-300 mb-3" />
                             <p className="text-gray-500 font-medium">No students found</p>
                             <p className="text-sm text-gray-400 mt-1">
-                              {searchTerm || activeFilterCount > 0 
-                                ? 'Try adjusting your filters' 
+                              {searchTerm || activeFilterCount > 0
+                                ? 'Try adjusting your filters'
                                 : 'Add your first student to get started'}
                             </p>
                           </div>
@@ -952,11 +963,10 @@ export default function QuizTakersClient({ initialQuizTakers, quizzes, questionS
                           </td>
                           <td className="px-6 py-4">
                             <span
-                              className={`px-2 py-1 text-xs font-medium rounded-full ${
-                                taker.accountType === 'premium'
+                              className={`px-2 py-1 text-xs font-medium rounded-full ${taker.accountType === 'premium'
                                   ? 'bg-purple-100 text-purple-700'
                                   : 'bg-gray-100 text-gray-700'
-                              }`}
+                                }`}
                             >
                               {taker.accountType}
                             </span>
@@ -1050,8 +1060,8 @@ export default function QuizTakersClient({ initialQuizTakers, quizzes, questionS
                     <Users className="w-12 h-12 text-gray-300 mx-auto mb-3" />
                     <p className="text-gray-500 font-medium">No students found</p>
                     <p className="text-sm text-gray-400 mt-1">
-                      {searchTerm || activeFilterCount > 0 
-                        ? 'Try adjusting your filters' 
+                      {searchTerm || activeFilterCount > 0
+                        ? 'Try adjusting your filters'
                         : 'Add your first student to get started'}
                     </p>
                   </div>
@@ -1065,7 +1075,7 @@ export default function QuizTakersClient({ initialQuizTakers, quizzes, questionS
                           onChange={() => handleSelectTaker(taker._id)}
                           className="mt-1 rounded border-gray-300"
                         />
-                        
+
                         <div className="flex-1 min-w-0">
                           {/* Name and Email */}
                           <div className="mb-2">
@@ -1078,11 +1088,10 @@ export default function QuizTakersClient({ initialQuizTakers, quizzes, questionS
                           {/* Badges */}
                           <div className="flex flex-wrap gap-2 mb-3">
                             <span
-                              className={`px-2 py-0.5 text-xs font-medium rounded-full ${
-                                taker.accountType === 'premium'
+                              className={`px-2 py-0.5 text-xs font-medium rounded-full ${taker.accountType === 'premium'
                                   ? 'bg-purple-100 text-purple-700'
                                   : 'bg-gray-100 text-gray-700'
-                              }`}
+                                }`}
                             >
                               {taker.accountType}
                             </span>
@@ -1230,11 +1239,10 @@ export default function QuizTakersClient({ initialQuizTakers, quizzes, questionS
                   {questionSets.map((qs) => (
                     <label
                       key={qs._id}
-                      className={`flex items-center p-3 rounded-lg cursor-pointer transition-colors ${
-                        selectedQuestionSets.includes(qs._id)
+                      className={`flex items-center p-3 rounded-lg cursor-pointer transition-colors ${selectedQuestionSets.includes(qs._id)
                           ? 'bg-indigo-50 border-2 border-indigo-500'
                           : 'bg-gray-50 border-2 border-transparent hover:bg-gray-100'
-                      }`}
+                        }`}
                     >
                       <input
                         type="checkbox"
@@ -1299,12 +1307,12 @@ export default function QuizTakersClient({ initialQuizTakers, quizzes, questionS
                 <X className="w-5 h-5" />
               </button>
             </div>
-            
+
             <p className="text-sm text-gray-600 mb-4">
               Upload a CSV or Excel file with email addresses. The file should
               have an &quot;email&quot; column.
             </p>
-            
+
             <input
               type="file"
               accept=".csv,.xlsx,.xls"
@@ -1312,13 +1320,13 @@ export default function QuizTakersClient({ initialQuizTakers, quizzes, questionS
               className="w-full px-4 py-2 border border-gray-300 rounded-lg mb-4"
               disabled={isSubmitting}
             />
-            
+
             {importFile && (
               <p className="text-sm text-gray-600 mb-4">
                 Selected: {importFile.name}
               </p>
             )}
-            
+
             <div className="flex justify-end gap-3">
               <button
                 onClick={() => {
@@ -1358,11 +1366,11 @@ export default function QuizTakersClient({ initialQuizTakers, quizzes, questionS
                 <X className="w-5 h-5" />
               </button>
             </div>
-            
+
             <p className="text-sm text-gray-600 mb-4">
               Select an exam to assign to {selectedTakers.length} student(s)
             </p>
-            
+
             {compatibleQuizzes.length === 0 && selectedTakers.length > 0 ? (
               <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg text-yellow-800 text-sm">
                 No compatible exams found. Selected students have different subject combinations.
@@ -1382,7 +1390,7 @@ export default function QuizTakersClient({ initialQuizTakers, quizzes, questionS
                 ))}
               </select>
             )}
-            
+
             <div className="flex justify-end gap-3">
               <button
                 onClick={() => {
@@ -1422,11 +1430,11 @@ export default function QuizTakersClient({ initialQuizTakers, quizzes, questionS
                 <X className="w-5 h-5" />
               </button>
             </div>
-            
+
             <p className="text-sm text-gray-600 mb-4">
               Select an exam to unassign from {selectedTakers.length} student(s)
             </p>
-            
+
             {assignedQuizzesForUnassign.length === 0 ? (
               <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg text-yellow-800 text-sm">
                 No assigned exams found for the selected students.
@@ -1446,7 +1454,7 @@ export default function QuizTakersClient({ initialQuizTakers, quizzes, questionS
                 ))}
               </select>
             )}
-            
+
             <div className="flex justify-end gap-3">
               <button
                 onClick={() => {
