@@ -29,7 +29,7 @@ export const getUserInfo = async () => {
         Authorization: `Bearer ${token}`,
       },
       credentials: "include",
-      cache: "no-store",
+      next: { revalidate: 30 } // Ensure fresh data on each request
     });
 
     if (!response.ok) {
@@ -55,7 +55,7 @@ export const getAllQuizzes = async () => {
         Authorization: `Bearer ${token}`,
       },
       credentials: "include",
-      cache: "no-store",
+      next: { revalidate: 30 } // Ensure fresh data on each request
     });
 
     if (!response.ok) {
@@ -97,7 +97,7 @@ export const getSubmissions = async () => {
         Authorization: `Bearer ${token}`,
       },
       credentials: "include",
-      cache: "no-store",
+      next: { revalidate: 30 } // Ensure fresh data on each request
     });
 
     if (!response.ok) {
@@ -125,7 +125,7 @@ export const getQuizById = async (id: string) => {
         Authorization: "Bearer " + token,
       },
       credentials: "include",
-      cache: "no-store", // Ensure fresh data
+      next: { revalidate: 30 } // Ensure fresh data on each request // Ensure fresh data
     });
 
     if (!response.ok) {
