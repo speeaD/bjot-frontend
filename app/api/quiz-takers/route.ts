@@ -7,7 +7,7 @@ export async function GET() {
   const cookieStore = await cookies();
   const token = cookieStore.get("auth-token")?.value;
   try {
-    const response = await fetch(`${BACKEND_URL}/admin/quiztakers`, {
+    const response = await fetch(`${BACKEND_URL}/admin/quiztakers?limit=1000`, {
       headers: {
         Authorization: `Bearer ${token}`,
       },

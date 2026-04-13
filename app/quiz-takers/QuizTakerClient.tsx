@@ -13,6 +13,8 @@ import {
   XCircle,
   Filter,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   Check,
   Calendar,
   Users,
@@ -87,6 +89,10 @@ export default function QuizTakersClient() {
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
   const [dateFilter, setDateFilter] = useState<'all' | 'today' | 'week' | 'month'>('all');
  
+  // Pagination States
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+
   // Form states
   const [newEmail, setNewEmail] = useState("");
   const [newName, setNewName] = useState("");
@@ -222,6 +228,18 @@ export default function QuizTakersClient() {
       return true;
     });
   }, [quizTakers, searchTerm, accountTypeFilter, statusFilter, subjectFilter, assignedQuizFilter, dateFilter]);
+
+  // Reset to page 1 whenever filters/search change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, accountTypeFilter, statusFilter, subjectFilter, assignedQuizFilter, dateFilter, pageSize]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredQuizTakers.length / pageSize));
+
+  const paginatedQuizTakers = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return filteredQuizTakers.slice(start, start + pageSize);
+  }, [filteredQuizTakers, currentPage, pageSize]);
  
   const compatibleQuizzes = useMemo(() => {
     if (selectedTakers.length === 0) return quizzes;
@@ -321,10 +339,12 @@ export default function QuizTakersClient() {
   };
  
   const handleSelectAll = () => {
-    if (selectedTakers.length === filteredQuizTakers.length) {
-      setSelectedTakers([]);
+    const pageIds = paginatedQuizTakers.map(t => t._id);
+    const allSelected = pageIds.every(id => selectedTakers.includes(id));
+    if (allSelected) {
+      setSelectedTakers(prev => prev.filter(id => !pageIds.includes(id)));
     } else {
-      setSelectedTakers(filteredQuizTakers.map(t => t._id));
+      setSelectedTakers(prev => [...new Set([...prev, ...pageIds])]);
     }
   };
  
@@ -838,8 +858,8 @@ export default function QuizTakersClient() {
               {/* Results Count */}
               <div className="mt-4 pt-4 border-t border-gray-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <p className="text-sm text-gray-600">
-                  Showing <span className="font-semibold">{filteredQuizTakers.length}</span> of{' '}
-                  <span className="font-semibold">{quizTakers.length}</span> students
+                  Showing <span className="font-semibold">{Math.min((currentPage - 1) * pageSize + 1, filteredQuizTakers.length) || 0}–{Math.min(currentPage * pageSize, filteredQuizTakers.length)}</span> of{' '}
+                  <span className="font-semibold">{filteredQuizTakers.length}</span> students
                 </p>
 
                 {/* Bulk Actions - Only show when items selected */}
@@ -892,7 +912,7 @@ export default function QuizTakersClient() {
                       <th className="px-6 py-3 text-left">
                         <input
                           type="checkbox"
-                          checked={filteredQuizTakers.length > 0 && selectedTakers.length === filteredQuizTakers.length}
+                          checked={paginatedQuizTakers.length > 0 && paginatedQuizTakers.every(t => selectedTakers.includes(t._id))}
                           onChange={handleSelectAll}
                           className="rounded border-gray-300"
                         />
@@ -936,7 +956,7 @@ export default function QuizTakersClient() {
                         </td>
                       </tr>
                     ) : (
-                      filteredQuizTakers.map((taker) => (
+                      paginatedQuizTakers.map((taker) => (
                         <tr key={taker._id} className="hover:bg-gray-50 transition-colors">
                           <td className="px-6 py-4">
                             <input
@@ -1059,7 +1079,7 @@ export default function QuizTakersClient() {
                     </p>
                   </div>
                 ) : (
-                  filteredQuizTakers.map((taker) => (
+                  paginatedQuizTakers.map((taker) => (
                     <div key={taker._id} className="p-4">
                       <div className="flex items-start gap-3">
                         <input
@@ -1159,6 +1179,96 @@ export default function QuizTakersClient() {
                   ))
                 )}
               </div>
+
+              {/* Pagination Bar */}
+              {filteredQuizTakers.length > 0 && (
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 md:px-6 py-4 border-t border-gray-200 bg-gray-50">
+                  {/* Page size selector + info */}
+                  <div className="flex items-center gap-3 text-sm text-gray-600">
+                    <span>Rows per page:</span>
+                    <select
+                      value={pageSize}
+                      onChange={(e) => setPageSize(Number(e.target.value))}
+                      className="px-2 py-1 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      {[10, 20, 50, 100].map(n => (
+                        <option key={n} value={n}>{n}</option>
+                      ))}
+                    </select>
+                    <span className="hidden sm:inline">
+                      {Math.min((currentPage - 1) * pageSize + 1, filteredQuizTakers.length)}–
+                      {Math.min(currentPage * pageSize, filteredQuizTakers.length)} of {filteredQuizTakers.length}
+                    </span>
+                  </div>
+
+                  {/* Page controls */}
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => setCurrentPage(1)}
+                      disabled={currentPage === 1}
+                      className="p-1.5 rounded-lg text-gray-500 hover:bg-gray-200 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                      title="First page"
+                    >
+                      <ChevronLeft className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                      disabled={currentPage === 1}
+                      className="px-3 py-1.5 rounded-lg text-sm text-gray-600 hover:bg-gray-200 disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center gap-1"
+                    >
+                      Prev
+                    </button>
+
+                    {/* Page number buttons */}
+                    <div className="flex items-center gap-1">
+                      {Array.from({ length: totalPages }, (_, i) => i + 1)
+                        .filter(p =>
+                          p === 1 ||
+                          p === totalPages ||
+                          Math.abs(p - currentPage) <= 1
+                        )
+                        .reduce<(number | 'ellipsis')[]>((acc, p, idx, arr) => {
+                          if (idx > 0 && p - (arr[idx - 1] as number) > 1) acc.push('ellipsis');
+                          acc.push(p);
+                          return acc;
+                        }, [])
+                        .map((item, idx) =>
+                          item === 'ellipsis' ? (
+                            <span key={`ellipsis-${idx}`} className="px-1 text-gray-400 text-sm">…</span>
+                          ) : (
+                            <button
+                              key={item}
+                              onClick={() => setCurrentPage(item as number)}
+                              className={`min-w-[32px] px-2 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                                currentPage === item
+                                  ? 'bg-blue-600 text-white'
+                                  : 'text-gray-600 hover:bg-gray-200'
+                              }`}
+                            >
+                              {item}
+                            </button>
+                          )
+                        )}
+                    </div>
+
+                    <button
+                      onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                      disabled={currentPage === totalPages}
+                      className="px-3 py-1.5 rounded-lg text-sm text-gray-600 hover:bg-gray-200 disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center gap-1"
+                    >
+                      Next
+                    </button>
+                    <button
+                      onClick={() => setCurrentPage(totalPages)}
+                      disabled={currentPage === totalPages}
+                      className="p-1.5 rounded-lg text-gray-500 hover:bg-gray-200 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                      title="Last page"
+                    >
+                      <ChevronRight className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
