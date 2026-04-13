@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
- 
+
 import { useMemo, useState, useEffect } from "react";
 import {
   Search,
@@ -24,12 +24,12 @@ import {
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Sidebar from "../componets/Sidebar";
- 
+
 interface QuestionSet {
   _id: string;
   title: string;
 }
- 
+
 interface QuizTaker {
   _id: string;
   email: string;
@@ -42,7 +42,7 @@ interface QuizTaker {
   assignedQuizzes?: any[];
   createdAt: string;
 }
- 
+
 interface Quiz {
   _id: string;
   settings: {
@@ -51,9 +51,9 @@ interface Quiz {
   };
   questionSetCombination: string[];
 }
- 
+
 // No Props interface needed — everything is fetched client-side
- 
+
 interface BulkUploadResult {
   row: number;
   email: string;
@@ -61,10 +61,10 @@ interface BulkUploadResult {
   accessCode?: string;
   reason?: string;
 }
- 
+
 export default function QuizTakersClient() {
   const router = useRouter();
- 
+
   // UI States
   const [searchTerm, setSearchTerm] = useState("");
   const [showFilterPanel, setShowFilterPanel] = useState(false);
@@ -74,21 +74,21 @@ export default function QuizTakersClient() {
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [showUnassignModal, setShowUnassignModal] = useState(false);
   const [showMobileSidebar, setShowMobileSidebar] = useState(false);
- 
+
   // Data States — start empty, populated on mount
   const [isPageLoading, setIsPageLoading] = useState(true);
   const [selectedTakers, setSelectedTakers] = useState<string[]>([]);
   const [quizTakers, setQuizTakers] = useState<QuizTaker[]>([]);
   const [quizzes, setQuizzes] = useState<Quiz[]>([]);
   const [questionSets, setQuestionSets] = useState<QuestionSet[]>([]);
- 
+
   // Filter States
   const [accountTypeFilter, setAccountTypeFilter] = useState<'all' | 'premium' | 'regular'>('all');
   const [subjectFilter, setSubjectFilter] = useState<string[]>([]);
   const [assignedQuizFilter, setAssignedQuizFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
   const [dateFilter, setDateFilter] = useState<'all' | 'today' | 'week' | 'month'>('all');
- 
+
   // Pagination States
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
@@ -102,7 +102,7 @@ export default function QuizTakersClient() {
   const [importFile, setImportFile] = useState<File | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
- 
+
   const [, setUploadResults] = useState<{
     total: number;
     successCount: number;
@@ -110,7 +110,7 @@ export default function QuizTakersClient() {
     successful: BulkUploadResult[];
     failed: BulkUploadResult[];
   } | null>(null);
- 
+
   // ─── Load all data on mount ───────────────────────────────────────────────
   useEffect(() => {
     const loadData = async () => {
@@ -121,13 +121,13 @@ export default function QuizTakersClient() {
           fetch('/api/quiz'),
           fetch('/api/questionset'),
         ]);
- 
+
         const [takersData, quizzesData, setsData] = await Promise.all([
           takersRes.json(),
           quizzesRes.json(),
           setsRes.json(),
         ]);
- 
+
         setQuizTakers(takersData.quizTakers || []);
         setQuizzes(quizzesData.quizzes || []);
         setQuestionSets(setsData.questionSets || []);
@@ -137,27 +137,27 @@ export default function QuizTakersClient() {
         setIsPageLoading(false);
       }
     };
- 
+
     loadData();
   }, []);
- 
+
   // ─── Memos ────────────────────────────────────────────────────────────────
- 
+
   const uniqueCombinations = useMemo(() => {
     const combinations = new Map<string, { ids: string[], titles: string[] }>();
- 
+
     quizTakers.forEach(taker => {
       if (taker.questionSetCombination && taker.questionSetCombination.length > 0) {
         const ids = taker.questionSetCombination.map(qs => qs._id).sort();
         const titles = taker.questionSetCombination.map(qs => qs.title).sort();
         const key = ids.join(',');
- 
+
         if (!combinations.has(key)) {
           combinations.set(key, { ids, titles });
         }
       }
     });
- 
+
     return Array.from(combinations.entries()).map(([key, value]) => ({
       key,
       ids: value.ids,
@@ -165,10 +165,10 @@ export default function QuizTakersClient() {
       label: value.titles.join(' + ')
     }));
   }, [quizTakers]);
- 
+
   const assignedQuizzesForFilter = useMemo(() => {
     const quizMap = new Map<string, string>();
- 
+
     quizTakers.forEach(taker => {
       if (taker.assignedQuizzes && taker.assignedQuizzes.length > 0) {
         taker.assignedQuizzes.forEach((quiz: any) => {
@@ -179,10 +179,10 @@ export default function QuizTakersClient() {
         });
       }
     });
- 
+
     return Array.from(quizMap.entries()).map(([id, title]) => ({ id, title }));
   }, [quizTakers]);
- 
+
   const filteredQuizTakers = useMemo(() => {
     return quizTakers.filter(taker => {
       const searchLower = searchTerm.toLowerCase();
@@ -190,16 +190,16 @@ export default function QuizTakersClient() {
         taker.email.toLowerCase().includes(searchLower) ||
         taker.name?.toLowerCase().includes(searchLower) ||
         taker.accessCode?.toLowerCase().includes(searchLower);
- 
+
       if (!matchesSearch) return false;
- 
+
       if (accountTypeFilter !== 'all' && taker.accountType !== accountTypeFilter) return false;
- 
+
       if (statusFilter !== 'all') {
         if (statusFilter === 'active' && !taker.isActive) return false;
         if (statusFilter === 'inactive' && taker.isActive) return false;
       }
- 
+
       if (subjectFilter.length > 0) {
         const takerCombination = taker.questionSetCombination
           ?.map(qs => qs._id)
@@ -207,7 +207,7 @@ export default function QuizTakersClient() {
           .join(',') || '';
         if (!subjectFilter.includes(takerCombination)) return false;
       }
- 
+
       if (assignedQuizFilter !== 'all') {
         if (assignedQuizFilter === 'none') {
           if (taker.assignedQuizzes && taker.assignedQuizzes.length > 0) return false;
@@ -216,7 +216,7 @@ export default function QuizTakersClient() {
           if (!hasQuiz) return false;
         }
       }
- 
+
       if (dateFilter !== 'all') {
         const createdDate = new Date(taker.createdAt);
         const diffDays = (Date.now() - createdDate.getTime()) / (1000 * 60 * 60 * 24);
@@ -224,7 +224,7 @@ export default function QuizTakersClient() {
         if (dateFilter === 'week' && diffDays > 7) return false;
         if (dateFilter === 'month' && diffDays > 30) return false;
       }
- 
+
       return true;
     });
   }, [quizTakers, searchTerm, accountTypeFilter, statusFilter, subjectFilter, assignedQuizFilter, dateFilter]);
@@ -240,49 +240,51 @@ export default function QuizTakersClient() {
     const start = (currentPage - 1) * pageSize;
     return filteredQuizTakers.slice(start, start + pageSize);
   }, [filteredQuizTakers, currentPage, pageSize]);
- 
+
   const compatibleQuizzes = useMemo(() => {
     if (selectedTakers.length === 0) return quizzes;
- 
+
     const selectedTakerObjects = quizTakers.filter(t => selectedTakers.includes(t._id));
- 
+
     return quizzes.filter(quiz => {
       const examType = quiz.settings.examType || 'multi-subject';
- 
+
       if (examType === 'single-subject') {
         const requiredSubjectId = quiz.questionSetCombination[0];
         if (!requiredSubjectId) return false;
- 
+
         return selectedTakerObjects.every(taker => {
           const takerSubjectIds = taker.questionSetCombination?.map(qs => qs._id) || [];
           return takerSubjectIds.includes(requiredSubjectId);
         });
       } else {
         const firstCombination = selectedTakerObjects[0]?.questionSetCombination
-          ?.map(qs => qs._id)
-          .sort();
- 
+          ? [...selectedTakerObjects[0].questionSetCombination.map(qs => qs._id)].sort()
+          : undefined;
+
         if (!firstCombination) return false;
- 
+
         const allSameCombination = selectedTakerObjects.every(taker => {
-          const takerCombination = taker.questionSetCombination?.map(qs => qs._id).sort();
+          const takerCombination = taker.questionSetCombination
+            ? [...taker.questionSetCombination.map(qs => qs._id)].sort()
+            : undefined;
           return JSON.stringify(takerCombination) === JSON.stringify(firstCombination);
         });
- 
+
         if (!allSameCombination) return false;
- 
-        const quizCombination = [...quiz.questionSetCombination].sort();
+
+        const quizCombination = [...(quiz.questionSetCombination || [])].sort();
         return JSON.stringify(quizCombination) === JSON.stringify(firstCombination);
       }
     });
   }, [selectedTakers, quizTakers, quizzes]);
- 
+
   const assignedQuizzesForUnassign = useMemo(() => {
     if (selectedTakers.length === 0) return [];
- 
+
     const quizCountMap = new Map<string, { title: string; count: number }>();
     const selectedTakerObjects = quizTakers.filter(t => selectedTakers.includes(t._id));
- 
+
     selectedTakerObjects.forEach(taker => {
       taker.assignedQuizzes?.forEach((quiz: any) => {
         const title = quiz.quizId?.settings?.title || `Untitled Quiz (${quiz._id.slice(0, 8)})`;
@@ -294,14 +296,14 @@ export default function QuizTakersClient() {
         }
       });
     });
- 
+
     return Array.from(quizCountMap.entries()).map(([id, data]) => ({
       id,
       title: data.title,
       count: data.count
     }));
   }, [selectedTakers, quizTakers]);
- 
+
   const activeFilterCount = useMemo(() => {
     let count = 0;
     if (accountTypeFilter !== 'all') count++;
@@ -311,9 +313,9 @@ export default function QuizTakersClient() {
     if (dateFilter !== 'all') count++;
     return count;
   }, [accountTypeFilter, statusFilter, subjectFilter, assignedQuizFilter, dateFilter]);
- 
+
   // ─── Helpers ──────────────────────────────────────────────────────────────
- 
+
   const clearAllFilters = () => {
     setAccountTypeFilter('all');
     setStatusFilter('all');
@@ -321,15 +323,15 @@ export default function QuizTakersClient() {
     setAssignedQuizFilter('all');
     setDateFilter('all');
   };
- 
+
   const refreshQuizTakers = async () => {
     const res = await fetch('/api/quiz-takers');
     const data = await res.json();
     setQuizTakers(data.quizTakers || []);
   };
- 
+
   // ─── Handlers ─────────────────────────────────────────────────────────────
- 
+
   const handleQuestionSetToggle = (id: string) => {
     setSelectedQuestionSets(prev => {
       if (prev.includes(id)) return prev.filter(item => item !== id);
@@ -337,7 +339,7 @@ export default function QuizTakersClient() {
       return prev;
     });
   };
- 
+
   const handleSelectAll = () => {
     const pageIds = paginatedQuizTakers.map(t => t._id);
     const allSelected = pageIds.every(id => selectedTakers.includes(id));
@@ -347,34 +349,34 @@ export default function QuizTakersClient() {
       setSelectedTakers(prev => [...new Set([...prev, ...pageIds])]);
     }
   };
- 
+
   const handleSelectTaker = (id: string) => {
     setSelectedTakers(prev =>
       prev.includes(id) ? prev.filter(t => t !== id) : [...prev, id]
     );
   };
- 
+
   const toggleSubjectFilter = (key: string) => {
     setSubjectFilter(prev =>
       prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]
     );
   };
- 
+
   const handleAddQuizTaker = async () => {
     if (!newEmail.trim()) {
       alert('Please enter an email address');
       return;
     }
- 
+
     if (selectedQuestionSets.length !== 4) {
       alert('Please select exactly 4 question sets');
       return;
     }
- 
+
     try {
       setIsSubmitting(true);
       setError(null);
- 
+
       const response = await fetch('/api/quiz-takers/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -384,12 +386,12 @@ export default function QuizTakersClient() {
           questionSetCombination: selectedQuestionSets
         }),
       });
- 
+
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.message || 'Failed to create student');
       }
- 
+
       const data = await response.json();
       setQuizTakers(prev => [data.quizTaker, ...prev]);
       setNewEmail('');
@@ -405,19 +407,19 @@ export default function QuizTakersClient() {
       setIsSubmitting(false);
     }
   };
- 
+
   const handleDeleteQuizTaker = async (id: string, email: string) => {
     if (!confirm(`Are you sure you want to delete ${email}?`)) return;
- 
+
     try {
       const response = await fetch('/api/quiz-takers/delete', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id }),
       });
- 
+
       if (!response.ok) throw new Error('Failed to delete student');
- 
+
       setQuizTakers(prev => prev.filter(t => t._id !== id));
       setSelectedTakers(prev => prev.filter(t => t !== id));
       alert('Student deleted successfully');
@@ -426,19 +428,19 @@ export default function QuizTakersClient() {
       alert(err instanceof Error ? err.message : 'Failed to delete student');
     }
   };
- 
+
   const handleDeleteSelected = async () => {
     if (!confirm(`Delete ${selectedTakers.length} quiz taker(s)?`)) return;
- 
+
     try {
       const response = await fetch('/api/quiz-takers/delete-multiple', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ids: selectedTakers }),
       });
- 
+
       if (!response.ok) throw new Error('Failed to delete students');
- 
+
       setQuizTakers(prev => prev.filter(t => !selectedTakers.includes(t._id)));
       setSelectedTakers([]);
       alert('Students deleted successfully');
@@ -447,22 +449,22 @@ export default function QuizTakersClient() {
       alert(err instanceof Error ? err.message : 'Failed to delete students');
     }
   };
- 
+
   const handleBulkUpload = async () => {
     if (!importFile) return;
- 
+
     const formData = new FormData();
     formData.append('file', importFile);
- 
+
     try {
       setIsSubmitting(true);
       const response = await fetch('/api/quiz-takers/bulk-upload', {
         method: 'POST',
         body: formData,
       });
- 
+
       if (!response.ok) throw new Error('Failed to upload file');
- 
+
       const data = await response.json();
       setUploadResults(data.results);
       setShowResultsModal(true);
@@ -476,10 +478,10 @@ export default function QuizTakersClient() {
       setIsSubmitting(false);
     }
   };
- 
+
   const handleAssignQuiz = async () => {
     if (!selectedQuizId || selectedTakers.length === 0) return;
- 
+
     try {
       setIsSubmitting(true);
       const response = await fetch('/api/quiz-takers/assign', {
@@ -487,9 +489,9 @@ export default function QuizTakersClient() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ quizTakerIds: selectedTakers, quizId: selectedQuizId }),
       });
- 
+
       if (!response.ok) throw new Error('Failed to assign exam');
- 
+
       alert('Exam assigned successfully');
       setShowAssignModal(false);
       setSelectedQuizId('');
@@ -501,10 +503,10 @@ export default function QuizTakersClient() {
       setIsSubmitting(false);
     }
   };
- 
+
   const handleUnassignQuiz = async () => {
     if (!selectedUnassignQuizId || selectedTakers.length === 0) return;
- 
+
     try {
       setIsSubmitting(true);
       const response = await fetch('/api/quiz-takers/unassign', {
@@ -512,9 +514,9 @@ export default function QuizTakersClient() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ quizTakerIds: selectedTakers, quizId: selectedUnassignQuizId }),
       });
- 
+
       if (!response.ok) throw new Error('Failed to unassign exam');
- 
+
       alert('Exam unassigned successfully');
       setShowUnassignModal(false);
       setSelectedUnassignQuizId('');
@@ -526,10 +528,10 @@ export default function QuizTakersClient() {
       setIsSubmitting(false);
     }
   };
- 
+
   const handleSendInvites = async () => {
     if (selectedTakers.length === 0) return;
- 
+
     try {
       setIsSubmitting(true);
       const response = await fetch('/api/quiz-takers/send-invites', {
@@ -537,9 +539,9 @@ export default function QuizTakersClient() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ quizTakerIds: selectedTakers }),
       });
- 
+
       if (!response.ok) throw new Error('Failed to send invites');
- 
+
       alert(`Invites sent to ${selectedTakers.length} quiz taker(s)`);
       setSelectedTakers([]);
     } catch (err) {
@@ -548,7 +550,7 @@ export default function QuizTakersClient() {
       setIsSubmitting(false);
     }
   };
- 
+
   const handleToggleActive = async (id: string, currentActive: boolean) => {
     try {
       const response = await fetch(`/api/quiz-takers/${id}/update`, {
@@ -556,9 +558,9 @@ export default function QuizTakersClient() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ isActive: !currentActive }),
       });
- 
+
       if (!response.ok) throw new Error('Failed to update status');
- 
+
       setQuizTakers(prev => prev.map(t =>
         t._id === id ? { ...t, isActive: !currentActive } : t
       ));
@@ -567,7 +569,7 @@ export default function QuizTakersClient() {
       alert(err instanceof Error ? err.message : 'Failed to update status');
     }
   };
- 
+
   // ─── Page loading skeleton ─────────────────────────────────────────────────
   if (isPageLoading) {
     return (
@@ -582,7 +584,7 @@ export default function QuizTakersClient() {
               <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 animate-pulse">
                 <div className="h-8 bg-gray-200 rounded w-1/4 mb-4" />
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-6">
-                  {[1,2,3,4].map(i => (
+                  {[1, 2, 3, 4].map(i => (
                     <div key={i} className="h-20 bg-gray-200 rounded-lg" />
                   ))}
                 </div>
@@ -590,7 +592,7 @@ export default function QuizTakersClient() {
               {/* Table skeleton */}
               <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 animate-pulse">
                 <div className="space-y-3">
-                  {[1,2,3,4,5,6,7,8].map(i => (
+                  {[1, 2, 3, 4, 5, 6, 7, 8].map(i => (
                     <div key={i} className="h-12 bg-gray-200 rounded" />
                   ))}
                 </div>
@@ -601,7 +603,7 @@ export default function QuizTakersClient() {
       </div>
     );
   }
- 
+
   // ─── Main render (unchanged from your original) ────────────────────────────
   return (
     <div className="min-h-screen bg-gray-50">
@@ -614,12 +616,12 @@ export default function QuizTakersClient() {
           >
             <Menu className="w-6 h-6 text-gray-600" />
           </button>
- 
+
           {/* Sidebar - Desktop */}
           <div className="hidden lg:block lg:col-span-3">
             <Sidebar />
           </div>
- 
+
           {/* Mobile Sidebar */}
           {showMobileSidebar && (
             <div className="lg:hidden fixed inset-0 z-50 flex">
@@ -637,7 +639,7 @@ export default function QuizTakersClient() {
               />
             </div>
           )}
- 
+
           {/* Main Content */}
           <div className="lg:col-span-9">
             {/* Header */}
@@ -647,7 +649,7 @@ export default function QuizTakersClient() {
                   <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Students</h1>
                   <p className="text-sm text-gray-500 mt-1">Manage your students and assignments</p>
                 </div>
- 
+
                 <div className="flex flex-wrap gap-2">
                   <button
                     onClick={() => setShowAddModal(true)}
@@ -666,7 +668,7 @@ export default function QuizTakersClient() {
                   </button>
                 </div>
               </div>
- 
+
               {/* Stats Cards */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-6">
                 <div className="bg-blue-50 rounded-lg p-3 md:p-4">
@@ -977,8 +979,8 @@ export default function QuizTakersClient() {
                           <td className="px-6 py-4">
                             <span
                               className={`px-2 py-1 text-xs font-medium rounded-full ${taker.accountType === 'premium'
-                                  ? 'bg-purple-100 text-purple-700'
-                                  : 'bg-gray-100 text-gray-700'
+                                ? 'bg-purple-100 text-purple-700'
+                                : 'bg-gray-100 text-gray-700'
                                 }`}
                             >
                               {taker.accountType}
@@ -1102,8 +1104,8 @@ export default function QuizTakersClient() {
                           <div className="flex flex-wrap gap-2 mb-3">
                             <span
                               className={`px-2 py-0.5 text-xs font-medium rounded-full ${taker.accountType === 'premium'
-                                  ? 'bg-purple-100 text-purple-700'
-                                  : 'bg-gray-100 text-gray-700'
+                                ? 'bg-purple-100 text-purple-700'
+                                : 'bg-gray-100 text-gray-700'
                                 }`}
                             >
                               {taker.accountType}
@@ -1239,11 +1241,10 @@ export default function QuizTakersClient() {
                             <button
                               key={item}
                               onClick={() => setCurrentPage(item as number)}
-                              className={`min-w-[32px] px-2 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                                currentPage === item
-                                  ? 'bg-blue-600 text-white'
-                                  : 'text-gray-600 hover:bg-gray-200'
-                              }`}
+                              className={`min-w-[32px] px-2 py-1.5 rounded-lg text-sm font-medium transition-colors ${currentPage === item
+                                ? 'bg-blue-600 text-white'
+                                : 'text-gray-600 hover:bg-gray-200'
+                                }`}
                             >
                               {item}
                             </button>
@@ -1343,8 +1344,8 @@ export default function QuizTakersClient() {
                     <label
                       key={qs._id}
                       className={`flex items-center p-3 rounded-lg cursor-pointer transition-colors ${selectedQuestionSets.includes(qs._id)
-                          ? 'bg-indigo-50 border-2 border-indigo-500'
-                          : 'bg-gray-50 border-2 border-transparent hover:bg-gray-100'
+                        ? 'bg-indigo-50 border-2 border-indigo-500'
+                        : 'bg-gray-50 border-2 border-transparent hover:bg-gray-100'
                         }`}
                     >
                       <input

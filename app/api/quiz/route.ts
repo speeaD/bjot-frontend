@@ -17,12 +17,11 @@ export async function GET()
       );
     }
 
-    const response = await fetch(`${BACKEND_URL}/quiz/`, {
+    const response = await fetch(`${BACKEND_URL}/quiz/slim`, {
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${token}`,
       },
-      next: { revalidate: 30 }, 
     });
 
     const data = await response.json();

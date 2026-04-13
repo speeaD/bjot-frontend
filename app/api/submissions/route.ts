@@ -17,7 +17,7 @@ export async function GET()
       );
     }
 
-    const response = await fetch(`${BACKEND_URL}/admin/submissions/`, {
+    const response = await fetch(`${BACKEND_URL}/admin/submissions`, {
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${token}`,
