@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
-
-import { useMemo, useState } from "react";
+ 
+import { useMemo, useState, useEffect } from "react";
 import {
   Search,
   UserPlus,
@@ -17,16 +17,17 @@ import {
   Calendar,
   Users,
   Award,
-  Menu
+  Menu,
+  Loader2,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Sidebar from "../componets/Sidebar";
-
+ 
 interface QuestionSet {
   _id: string;
   title: string;
 }
-
+ 
 interface QuizTaker {
   _id: string;
   email: string;
@@ -39,7 +40,7 @@ interface QuizTaker {
   assignedQuizzes?: any[];
   createdAt: string;
 }
-
+ 
 interface Quiz {
   _id: string;
   settings: {
@@ -48,13 +49,9 @@ interface Quiz {
   };
   questionSetCombination: string[];
 }
-
-interface Props {
-  initialQuizTakers: QuizTaker[];
-  quizzes: Quiz[];
-  questionSets: QuestionSet[];
-}
-
+ 
+// No Props interface needed — everything is fetched client-side
+ 
 interface BulkUploadResult {
   row: number;
   email: string;
@@ -62,10 +59,10 @@ interface BulkUploadResult {
   accessCode?: string;
   reason?: string;
 }
-
-export default function QuizTakersClient({ initialQuizTakers, quizzes, questionSets }: Props) {
+ 
+export default function QuizTakersClient() {
   const router = useRouter();
-
+ 
   // UI States
   const [searchTerm, setSearchTerm] = useState("");
   const [showFilterPanel, setShowFilterPanel] = useState(false);
@@ -75,18 +72,21 @@ export default function QuizTakersClient({ initialQuizTakers, quizzes, questionS
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [showUnassignModal, setShowUnassignModal] = useState(false);
   const [showMobileSidebar, setShowMobileSidebar] = useState(false);
-
-  // Data States
+ 
+  // Data States — start empty, populated on mount
+  const [isPageLoading, setIsPageLoading] = useState(true);
   const [selectedTakers, setSelectedTakers] = useState<string[]>([]);
-  const [quizTakers, setQuizTakers] = useState<QuizTaker[]>(initialQuizTakers);
-
+  const [quizTakers, setQuizTakers] = useState<QuizTaker[]>([]);
+  const [quizzes, setQuizzes] = useState<Quiz[]>([]);
+  const [questionSets, setQuestionSets] = useState<QuestionSet[]>([]);
+ 
   // Filter States
   const [accountTypeFilter, setAccountTypeFilter] = useState<'all' | 'premium' | 'regular'>('all');
   const [subjectFilter, setSubjectFilter] = useState<string[]>([]);
   const [assignedQuizFilter, setAssignedQuizFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
   const [dateFilter, setDateFilter] = useState<'all' | 'today' | 'week' | 'month'>('all');
-
+ 
   // Form states
   const [newEmail, setNewEmail] = useState("");
   const [newName, setNewName] = useState("");
@@ -96,7 +96,7 @@ export default function QuizTakersClient({ initialQuizTakers, quizzes, questionS
   const [importFile, setImportFile] = useState<File | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
+ 
   const [, setUploadResults] = useState<{
     total: number;
     successCount: number;
@@ -104,23 +104,54 @@ export default function QuizTakersClient({ initialQuizTakers, quizzes, questionS
     successful: BulkUploadResult[];
     failed: BulkUploadResult[];
   } | null>(null);
-
-  // Get unique subject combinations
+ 
+  // ─── Load all data on mount ───────────────────────────────────────────────
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        setIsPageLoading(true);
+        const [takersRes, quizzesRes, setsRes] = await Promise.all([
+          fetch('/api/quiz-takers'),
+          fetch('/api/quiz'),
+          fetch('/api/questionset'),
+        ]);
+ 
+        const [takersData, quizzesData, setsData] = await Promise.all([
+          takersRes.json(),
+          quizzesRes.json(),
+          setsRes.json(),
+        ]);
+ 
+        setQuizTakers(takersData.quizTakers || []);
+        setQuizzes(quizzesData.quizzes || []);
+        setQuestionSets(setsData.questionSets || []);
+      } catch (err) {
+        console.error('Failed to load page data:', err);
+      } finally {
+        setIsPageLoading(false);
+      }
+    };
+ 
+    loadData();
+  }, []);
+ 
+  // ─── Memos ────────────────────────────────────────────────────────────────
+ 
   const uniqueCombinations = useMemo(() => {
     const combinations = new Map<string, { ids: string[], titles: string[] }>();
-
+ 
     quizTakers.forEach(taker => {
       if (taker.questionSetCombination && taker.questionSetCombination.length > 0) {
         const ids = taker.questionSetCombination.map(qs => qs._id).sort();
         const titles = taker.questionSetCombination.map(qs => qs.title).sort();
         const key = ids.join(',');
-
+ 
         if (!combinations.has(key)) {
           combinations.set(key, { ids, titles });
         }
       }
     });
-
+ 
     return Array.from(combinations.entries()).map(([key, value]) => ({
       key,
       ids: value.ids,
@@ -128,11 +159,10 @@ export default function QuizTakersClient({ initialQuizTakers, quizzes, questionS
       label: value.titles.join(' + ')
     }));
   }, [quizTakers]);
-
-  // Get list of assigned quizzes for filter dropdown
+ 
   const assignedQuizzesForFilter = useMemo(() => {
     const quizMap = new Map<string, string>();
-
+ 
     quizTakers.forEach(taker => {
       if (taker.assignedQuizzes && taker.assignedQuizzes.length > 0) {
         taker.assignedQuizzes.forEach((quiz: any) => {
@@ -143,150 +173,117 @@ export default function QuizTakersClient({ initialQuizTakers, quizzes, questionS
         });
       }
     });
-
+ 
     return Array.from(quizMap.entries()).map(([id, title]) => ({ id, title }));
   }, [quizTakers]);
-
-  // Filtered quiz takers based on all filters
+ 
   const filteredQuizTakers = useMemo(() => {
     return quizTakers.filter(taker => {
-      // Search filter
       const searchLower = searchTerm.toLowerCase();
       const matchesSearch =
         taker.email.toLowerCase().includes(searchLower) ||
         taker.name?.toLowerCase().includes(searchLower) ||
         taker.accessCode?.toLowerCase().includes(searchLower);
-
+ 
       if (!matchesSearch) return false;
-
-      // Account type filter
-      if (accountTypeFilter !== 'all' && taker.accountType !== accountTypeFilter) {
-        return false;
-      }
-
-      // Status filter
+ 
+      if (accountTypeFilter !== 'all' && taker.accountType !== accountTypeFilter) return false;
+ 
       if (statusFilter !== 'all') {
-        const isActive = taker.isActive;
-        if (statusFilter === 'active' && !isActive) return false;
-        if (statusFilter === 'inactive' && isActive) return false;
+        if (statusFilter === 'active' && !taker.isActive) return false;
+        if (statusFilter === 'inactive' && taker.isActive) return false;
       }
-
-      // Subject combination filter
+ 
       if (subjectFilter.length > 0) {
         const takerCombination = taker.questionSetCombination
           ?.map(qs => qs._id)
           .sort()
           .join(',') || '';
-
-        if (!subjectFilter.includes(takerCombination)) {
-          return false;
-        }
+        if (!subjectFilter.includes(takerCombination)) return false;
       }
-
-      // Assigned quiz filter
+ 
       if (assignedQuizFilter !== 'all') {
         if (assignedQuizFilter === 'none') {
-          if (taker.assignedQuizzes && taker.assignedQuizzes.length > 0) {
-            return false;
-          }
+          if (taker.assignedQuizzes && taker.assignedQuizzes.length > 0) return false;
         } else {
-          const hasQuiz = taker.assignedQuizzes?.some(
-            (quiz: any) => quiz._id === assignedQuizFilter
-          );
+          const hasQuiz = taker.assignedQuizzes?.some((quiz: any) => quiz._id === assignedQuizFilter);
           if (!hasQuiz) return false;
         }
       }
-
-      // Date filter
+ 
       if (dateFilter !== 'all') {
         const createdDate = new Date(taker.createdAt);
-        const now = new Date();
-        const diffTime = now.getTime() - createdDate.getTime();
-        const diffDays = diffTime / (1000 * 60 * 60 * 24);
-
+        const diffDays = (Date.now() - createdDate.getTime()) / (1000 * 60 * 60 * 24);
         if (dateFilter === 'today' && diffDays > 1) return false;
         if (dateFilter === 'week' && diffDays > 7) return false;
         if (dateFilter === 'month' && diffDays > 30) return false;
       }
-
+ 
       return true;
     });
   }, [quizTakers, searchTerm, accountTypeFilter, statusFilter, subjectFilter, assignedQuizFilter, dateFilter]);
-
-  // Get compatible quizzes for selected takers
+ 
   const compatibleQuizzes = useMemo(() => {
     if (selectedTakers.length === 0) return quizzes;
-
+ 
     const selectedTakerObjects = quizTakers.filter(t => selectedTakers.includes(t._id));
-
+ 
     return quizzes.filter(quiz => {
       const examType = quiz.settings.examType || 'multi-subject';
-
+ 
       if (examType === 'single-subject') {
-        // The quiz covers exactly one subject — every selected student must offer it
         const requiredSubjectId = quiz.questionSetCombination[0];
         if (!requiredSubjectId) return false;
-
+ 
         return selectedTakerObjects.every(taker => {
           const takerSubjectIds = taker.questionSetCombination?.map(qs => qs._id) || [];
           return takerSubjectIds.includes(requiredSubjectId);
         });
-
       } else {
-        // Multi-subject — all selected students must share the same 4-subject combination
-        // and it must exactly match the quiz's combination
         const firstCombination = selectedTakerObjects[0]?.questionSetCombination
           ?.map(qs => qs._id)
           .sort();
-
+ 
         if (!firstCombination) return false;
-
+ 
         const allSameCombination = selectedTakerObjects.every(taker => {
           const takerCombination = taker.questionSetCombination?.map(qs => qs._id).sort();
           return JSON.stringify(takerCombination) === JSON.stringify(firstCombination);
         });
-
+ 
         if (!allSameCombination) return false;
-
+ 
         const quizCombination = [...quiz.questionSetCombination].sort();
         return JSON.stringify(quizCombination) === JSON.stringify(firstCombination);
       }
     });
   }, [selectedTakers, quizTakers, quizzes]);
-
-  // Get assigned quizzes that can be unassigned
+ 
   const assignedQuizzesForUnassign = useMemo(() => {
     if (selectedTakers.length === 0) return [];
-
+ 
     const quizCountMap = new Map<string, { title: string; count: number }>();
     const selectedTakerObjects = quizTakers.filter(t => selectedTakers.includes(t._id));
-
+ 
     selectedTakerObjects.forEach(taker => {
       taker.assignedQuizzes?.forEach((quiz: any) => {
         const title = quiz.quizId?.settings?.title || `Untitled Quiz (${quiz._id.slice(0, 8)})`;
         const current = quizCountMap.get(quiz.quizId?._id);
         if (current) {
-          quizCountMap.set(quiz.quizId?._id, {
-            title,
-            count: current.count + 1
-          });
+          quizCountMap.set(quiz.quizId?._id, { title, count: current.count + 1 });
         } else {
-          quizCountMap.set(quiz.quizId?._id, {
-            title,
-            count: 1
-          });
+          quizCountMap.set(quiz.quizId?._id, { title, count: 1 });
         }
       });
     });
-
+ 
     return Array.from(quizCountMap.entries()).map(([id, data]) => ({
       id,
       title: data.title,
       count: data.count
     }));
   }, [selectedTakers, quizTakers]);
-
-  // Count active filters
+ 
   const activeFilterCount = useMemo(() => {
     let count = 0;
     if (accountTypeFilter !== 'all') count++;
@@ -296,8 +293,9 @@ export default function QuizTakersClient({ initialQuizTakers, quizzes, questionS
     if (dateFilter !== 'all') count++;
     return count;
   }, [accountTypeFilter, statusFilter, subjectFilter, assignedQuizFilter, dateFilter]);
-
-  // Clear all filters
+ 
+  // ─── Helpers ──────────────────────────────────────────────────────────────
+ 
   const clearAllFilters = () => {
     setAccountTypeFilter('all');
     setStatusFilter('all');
@@ -305,19 +303,23 @@ export default function QuizTakersClient({ initialQuizTakers, quizzes, questionS
     setAssignedQuizFilter('all');
     setDateFilter('all');
   };
-
-  // Handlers
+ 
+  const refreshQuizTakers = async () => {
+    const res = await fetch('/api/quiz-takers');
+    const data = await res.json();
+    setQuizTakers(data.quizTakers || []);
+  };
+ 
+  // ─── Handlers ─────────────────────────────────────────────────────────────
+ 
   const handleQuestionSetToggle = (id: string) => {
     setSelectedQuestionSets(prev => {
-      if (prev.includes(id)) {
-        return prev.filter(item => item !== id);
-      } else if (prev.length < 4) {
-        return [...prev, id];
-      }
+      if (prev.includes(id)) return prev.filter(item => item !== id);
+      if (prev.length < 4) return [...prev, id];
       return prev;
     });
   };
-
+ 
   const handleSelectAll = () => {
     if (selectedTakers.length === filteredQuizTakers.length) {
       setSelectedTakers([]);
@@ -325,61 +327,56 @@ export default function QuizTakersClient({ initialQuizTakers, quizzes, questionS
       setSelectedTakers(filteredQuizTakers.map(t => t._id));
     }
   };
-
+ 
   const handleSelectTaker = (id: string) => {
     setSelectedTakers(prev =>
       prev.includes(id) ? prev.filter(t => t !== id) : [...prev, id]
     );
   };
-
+ 
   const toggleSubjectFilter = (key: string) => {
     setSubjectFilter(prev =>
       prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]
     );
   };
-
+ 
   const handleAddQuizTaker = async () => {
     if (!newEmail.trim()) {
       alert('Please enter an email address');
       return;
     }
-
+ 
     if (selectedQuestionSets.length !== 4) {
       alert('Please select exactly 4 question sets');
       return;
     }
-
+ 
     try {
       setIsSubmitting(true);
       setError(null);
-
+ 
       const response = await fetch('/api/quiz-takers/create', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           email: newEmail,
           name: newName || undefined,
           questionSetCombination: selectedQuestionSets
         }),
       });
-
+ 
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.message || 'Failed to create student');
       }
-
+ 
       const data = await response.json();
-
       setQuizTakers(prev => [data.quizTaker, ...prev]);
       setNewEmail('');
       setNewName('');
       setSelectedQuestionSets([]);
       setShowAddModal(false);
-
       alert(`Premium quiz taker created successfully! Access Code: ${data.quizTaker.accessCode}`);
-
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create student');
@@ -388,167 +385,141 @@ export default function QuizTakersClient({ initialQuizTakers, quizzes, questionS
       setIsSubmitting(false);
     }
   };
-
+ 
   const handleDeleteQuizTaker = async (id: string, email: string) => {
     if (!confirm(`Are you sure you want to delete ${email}?`)) return;
-
+ 
     try {
       const response = await fetch('/api/quiz-takers/delete', {
         method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id }),
       });
-
+ 
       if (!response.ok) throw new Error('Failed to delete student');
-
+ 
       setQuizTakers(prev => prev.filter(t => t._id !== id));
       setSelectedTakers(prev => prev.filter(t => t !== id));
-
       alert('Student deleted successfully');
       router.refresh();
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Failed to delete student');
     }
   };
-
+ 
   const handleDeleteSelected = async () => {
     if (!confirm(`Delete ${selectedTakers.length} quiz taker(s)?`)) return;
-
+ 
     try {
       const response = await fetch('/api/quiz-takers/delete-multiple', {
         method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ids: selectedTakers }),
       });
-
+ 
       if (!response.ok) throw new Error('Failed to delete students');
-
+ 
       setQuizTakers(prev => prev.filter(t => !selectedTakers.includes(t._id)));
       setSelectedTakers([]);
-
       alert('Students deleted successfully');
       router.refresh();
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Failed to delete students');
     }
   };
-
+ 
   const handleBulkUpload = async () => {
     if (!importFile) return;
-
+ 
     const formData = new FormData();
     formData.append('file', importFile);
-
+ 
     try {
       setIsSubmitting(true);
       const response = await fetch('/api/quiz-takers/bulk-upload', {
         method: 'POST',
         body: formData,
       });
-
+ 
       if (!response.ok) throw new Error('Failed to upload file');
-
+ 
       const data = await response.json();
-
       setUploadResults(data.results);
       setShowResultsModal(true);
       setShowImportModal(false);
       setImportFile(null);
-
+      await refreshQuizTakers();
       router.refresh();
-
-      const newTakers = await fetch('/api/quiz-takers').then(r => r.json());
-      setQuizTakers(newTakers.quizTakers || []);
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Failed to upload file');
     } finally {
       setIsSubmitting(false);
     }
   };
-
+ 
   const handleAssignQuiz = async () => {
     if (!selectedQuizId || selectedTakers.length === 0) return;
-
+ 
     try {
       setIsSubmitting(true);
       const response = await fetch('/api/quiz-takers/assign', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          quizTakerIds: selectedTakers,
-          quizId: selectedQuizId,
-        }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ quizTakerIds: selectedTakers, quizId: selectedQuizId }),
       });
-
+ 
       if (!response.ok) throw new Error('Failed to assign exam');
-
+ 
       alert('Exam assigned successfully');
       setShowAssignModal(false);
       setSelectedQuizId('');
+      await refreshQuizTakers();
       router.refresh();
-      const newTakers = await fetch('/api/quiz-takers').then(r => r.json());
-      setQuizTakers(newTakers.quizTakers || []);
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Failed to assign exam');
     } finally {
       setIsSubmitting(false);
     }
   };
-
+ 
   const handleUnassignQuiz = async () => {
     if (!selectedUnassignQuizId || selectedTakers.length === 0) return;
-
+ 
     try {
       setIsSubmitting(true);
       const response = await fetch('/api/quiz-takers/unassign', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          quizTakerIds: selectedTakers,
-          quizId: selectedUnassignQuizId,
-        }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ quizTakerIds: selectedTakers, quizId: selectedUnassignQuizId }),
       });
-
+ 
       if (!response.ok) throw new Error('Failed to unassign exam');
-
+ 
       alert('Exam unassigned successfully');
       setShowUnassignModal(false);
       setSelectedUnassignQuizId('');
+      await refreshQuizTakers();
       router.refresh();
-
-      const newTakers = await fetch('/api/quiz-takers').then(r => r.json());
-      setQuizTakers(newTakers.quizTakers || []);
-
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Failed to unassign exam');
     } finally {
       setIsSubmitting(false);
     }
   };
-
+ 
   const handleSendInvites = async () => {
     if (selectedTakers.length === 0) return;
-
+ 
     try {
       setIsSubmitting(true);
       const response = await fetch('/api/quiz-takers/send-invites', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ quizTakerIds: selectedTakers }),
       });
-
+ 
       if (!response.ok) throw new Error('Failed to send invites');
-
+ 
       alert(`Invites sent to ${selectedTakers.length} quiz taker(s)`);
       setSelectedTakers([]);
     } catch (err) {
@@ -557,19 +528,17 @@ export default function QuizTakersClient({ initialQuizTakers, quizzes, questionS
       setIsSubmitting(false);
     }
   };
-
+ 
   const handleToggleActive = async (id: string, currentActive: boolean) => {
     try {
       const response = await fetch(`/api/quiz-takers/${id}/update`, {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ isActive: !currentActive }),
       });
-
+ 
       if (!response.ok) throw new Error('Failed to update status');
-
+ 
       setQuizTakers(prev => prev.map(t =>
         t._id === id ? { ...t, isActive: !currentActive } : t
       ));
@@ -578,24 +547,59 @@ export default function QuizTakersClient({ initialQuizTakers, quizzes, questionS
       alert(err instanceof Error ? err.message : 'Failed to update status');
     }
   };
-
+ 
+  // ─── Page loading skeleton ─────────────────────────────────────────────────
+  if (isPageLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 md:py-8">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 md:gap-6">
+            <div className="hidden lg:block lg:col-span-3">
+              <Sidebar />
+            </div>
+            <div className="lg:col-span-9 space-y-4">
+              {/* Header skeleton */}
+              <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 animate-pulse">
+                <div className="h-8 bg-gray-200 rounded w-1/4 mb-4" />
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-6">
+                  {[1,2,3,4].map(i => (
+                    <div key={i} className="h-20 bg-gray-200 rounded-lg" />
+                  ))}
+                </div>
+              </div>
+              {/* Table skeleton */}
+              <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 animate-pulse">
+                <div className="space-y-3">
+                  {[1,2,3,4,5,6,7,8].map(i => (
+                    <div key={i} className="h-12 bg-gray-200 rounded" />
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+ 
+  // ─── Main render (unchanged from your original) ────────────────────────────
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 md:py-8">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 md:gap-6">
           {/* Mobile Sidebar Toggle */}
           <button
-            className="lg:hidden fixed top-4 left-4  p-2 bg-white rounded-lg shadow-md"
+            className="lg:hidden fixed top-4 left-4 p-2 bg-white rounded-lg shadow-md"
             onClick={() => setShowMobileSidebar(true)}
           >
             <Menu className="w-6 h-6 text-gray-600" />
           </button>
-
+ 
           {/* Sidebar - Desktop */}
           <div className="hidden lg:block lg:col-span-3">
             <Sidebar />
           </div>
-
+ 
           {/* Mobile Sidebar */}
           {showMobileSidebar && (
             <div className="lg:hidden fixed inset-0 z-50 flex">
@@ -613,22 +617,17 @@ export default function QuizTakersClient({ initialQuizTakers, quizzes, questionS
               />
             </div>
           )}
-
+ 
           {/* Main Content */}
           <div className="lg:col-span-9">
             {/* Header */}
             <div className="bg-white rounded-xl md:rounded-2xl shadow-sm border border-gray-100 p-4 md:p-6 mb-4 md:mb-6">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div>
-                  <h1 className="text-2xl md:text-3xl font-bold text-gray-900">
-                    Students
-                  </h1>
-                  <p className="text-sm text-gray-500 mt-1">
-                    Manage your students and assignments
-                  </p>
+                  <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Students</h1>
+                  <p className="text-sm text-gray-500 mt-1">Manage your students and assignments</p>
                 </div>
-
-                {/* Action Buttons - Responsive */}
+ 
                 <div className="flex flex-wrap gap-2">
                   <button
                     onClick={() => setShowAddModal(true)}
@@ -643,24 +642,20 @@ export default function QuizTakersClient({ initialQuizTakers, quizzes, questionS
                     className="flex-1 sm:flex-none px-4 py-2 bg-blue-bg text-white rounded-lg text-sm font-medium hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
                   >
                     <Upload className="w-4 h-4" />
-                    <span className="hidden sm:inline">Import</span>
-                    <span className="sm:hidden">Import</span>
+                    Import
                   </button>
                 </div>
               </div>
-
-              {/* Stats Cards - Mobile Responsive */}
+ 
+              {/* Stats Cards */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-6">
                 <div className="bg-blue-50 rounded-lg p-3 md:p-4">
                   <div className="flex items-center gap-2 mb-1">
                     <Users className="w-4 h-4 text-blue-600" />
                     <p className="text-xs text-blue-600 font-medium">Total</p>
                   </div>
-                  <p className="text-xl md:text-2xl font-bold text-blue-900">
-                    {quizTakers.length}
-                  </p>
+                  <p className="text-xl md:text-2xl font-bold text-blue-900">{quizTakers.length}</p>
                 </div>
-
                 <div className="bg-purple-50 rounded-lg p-3 md:p-4">
                   <div className="flex items-center gap-2 mb-1">
                     <Award className="w-4 h-4 text-purple-600" />
@@ -670,7 +665,6 @@ export default function QuizTakersClient({ initialQuizTakers, quizzes, questionS
                     {quizTakers.filter(t => t.accountType === 'premium').length}
                   </p>
                 </div>
-
                 <div className="bg-green-50 rounded-lg p-3 md:p-4">
                   <div className="flex items-center gap-2 mb-1">
                     <Check className="w-4 h-4 text-green-600" />
@@ -680,7 +674,6 @@ export default function QuizTakersClient({ initialQuizTakers, quizzes, questionS
                     {quizTakers.filter(t => t.isActive).length}
                   </p>
                 </div>
-
                 <div className="bg-orange-50 rounded-lg p-3 md:p-4">
                   <div className="flex items-center gap-2 mb-1">
                     <Calendar className="w-4 h-4 text-orange-600" />
