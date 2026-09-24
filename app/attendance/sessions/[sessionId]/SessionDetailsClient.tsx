@@ -68,7 +68,7 @@ export default function SessionDetailsClient({
 
   if (!data && !isLoading) {
     return (
-      <div className="max-w-7xl mx-auto p-6">
+      <div className="max-w-7xl mx-auto p-4 sm:p-6">
         <div className="text-center py-12">
           <p className="text-gray-600">{error || 'Session not found'}</p>
           <button
@@ -95,7 +95,7 @@ export default function SessionDetailsClient({
 
   return (
     <div className='bg-gray-50 min-h-screen'>
-    <div className="max-w-7xl mx-auto p-6">
+    <div className="max-w-7xl mx-auto p-4 sm:p-6">
       {/* Header */}
       <div className="mb-8">
         <button
@@ -110,7 +110,7 @@ export default function SessionDetailsClient({
         
         {session && (
           <>
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">{session.questionSetTitle}</h1>
+            <h2 className="mb-2 text-2xl font-bold text-[#0d2818]">{session.questionSetTitle}</h2>
             <div className="flex items-center space-x-4 text-gray-600">
               <span className={`px-3 py-1 rounded-lg text-sm font-medium ${getDepartmentColor(session.department)}`}>
                 {session.department}
@@ -168,7 +168,7 @@ export default function SessionDetailsClient({
 
       {/* Filter Tabs */}
       <div className="mb-6 border-b border-gray-200">
-        <div className="flex space-x-8">
+        <div className="flex gap-6 overflow-x-auto whitespace-nowrap">
           <button
             onClick={() => setFilter('all')}
             className={`pb-4 px-2 font-medium transition-colors ${

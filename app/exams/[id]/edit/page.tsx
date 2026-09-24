@@ -316,7 +316,7 @@ export default function ExamEditPage({ params }: { params: Promise<{ id: string 
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6">
         {/* Header */}
-        <div className="flex items-center justify-between mb-6">
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
           <Link 
             href={`/`}
             className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900 font-medium"
@@ -325,7 +325,7 @@ export default function ExamEditPage({ params }: { params: Promise<{ id: string 
             Back to Exam
           </Link>
           
-          <h1 className="text-2xl font-bold text-gray-900">Edit Exam</h1>
+          <h2 className="text-xl font-bold text-[#0d2818]">Exam Configuration</h2>
         </div>
 
         {/* Error Alert */}

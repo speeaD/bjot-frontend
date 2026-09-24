@@ -63,7 +63,7 @@ export default function QuizSettingsComponent({ settings, onSettingsChange } : Q
             {/* Quiz Title */}
             <div className="bg-white rounded-lg shadow p-4">
                 <label className="block text-lg font-semibold text-gray-800 mb-2">
-                    Quiz Title
+                    Exam Title
                 </label>
                 <input
                     type="text"
@@ -77,9 +77,9 @@ export default function QuizSettingsComponent({ settings, onSettingsChange } : Q
             <div className="bg-gray-50 rounded-lg p-4">
                 <div className="flex items-center justify-between">
                     <div>
-                        <h3 className="font-semibold text-gray-800 text-lg mb-2">Make quiz open?</h3>
+                        <h3 className="font-semibold text-gray-800 text-lg mb-2">Make exam open?</h3>
                         <p className="text-gray-600">
-                            If you make this quiz a open, Anybody can participate without login.
+                            If you make this exam open, Anybody can participate without login.
                         </p>
                     </div>
                     <ToggleSwitch value={settings.isOpenQuiz || false} 

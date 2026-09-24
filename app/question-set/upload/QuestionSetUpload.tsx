@@ -11,9 +11,7 @@ interface QuestionSetUploadProps {
 export default function QuestionSetUpload({ onSuccess }: QuestionSetUploadProps) {
   const [file, setFile] = useState<File | null>(null);
   const [title, setTitle] = useState('');
-  const [usesBatches, setUsesBatches] = useState(false);
-  const [batchNumber, setBatchNumber] = useState(1);
-  const [batchName, setBatchName] = useState('Batch 1');
+  const [topicName, setTopicName] = useState('');
   const [isUploading, setIsUploading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -74,13 +72,8 @@ export default function QuestionSetUpload({ onSuccess }: QuestionSetUploadProps)
       newErrors.file = 'Please select a file to upload';
     }
 
-    if (usesBatches) {
-      if (!batchName.trim()) {
-        newErrors.batchName = 'Batch name is required when using batches';
-      }
-      if (batchNumber < 1) {
-        newErrors.batchNumber = 'Batch number must be at least 1';
-      }
+    if (!topicName.trim()) {
+      newErrors.topicName = 'A first topic is required';
     }
 
     setErrors(newErrors);
@@ -100,12 +93,7 @@ export default function QuestionSetUpload({ onSuccess }: QuestionSetUploadProps)
       const formData = new FormData();
       formData.append('file', file!);
       formData.append('title', title.trim());
-      formData.append('usesBatches', usesBatches.toString());
-      
-      if (usesBatches) {
-        formData.append('batchNumber', batchNumber.toString());
-        formData.append('batchName', batchName.trim());
-      }
+      formData.append('topicName', topicName.trim());
 
       const response = await fetch('/api/questionset/bulk-upload', {
         method: 'POST',
@@ -125,9 +113,7 @@ export default function QuestionSetUpload({ onSuccess }: QuestionSetUploadProps)
       // Reset form
       setFile(null);
       setTitle('');
-      setUsesBatches(false);
-      setBatchNumber(1);
-      setBatchName('Batch 1');
+      setTopicName('');
       setErrors({});
       
       // Reset file input
@@ -165,11 +151,9 @@ export default function QuestionSetUpload({ onSuccess }: QuestionSetUploadProps)
           <div className="flex items-start">
             <Info className="w-5 h-5 text-blue-600 mr-3 mt-0.5 flex-shrink-0" />
             <div className="text-sm text-blue-800">
-              <p className="font-semibold mb-1">About Batches:</p>
+              <p className="font-semibold mb-1">About topics:</p>
               <p>
-                You can organize questions into batches to create different variations of quizzes. 
-                For example, create &quot;Easy&ldquo;, &quot;Medium&quot;, and &quot;Hard&quot; batches within the same question set. 
-                This allows you to use the same question set in multiple quizzes with different difficulty levels.
+                Upload questions to a topic within a subject. Exams are composed from one or more topics, with a selected number of questions drawn from each topic.
               </p>
             </div>
           </div>
@@ -197,79 +181,11 @@ export default function QuestionSetUpload({ onSuccess }: QuestionSetUploadProps)
             )}
           </div>
 
-          {/* Use Batches Toggle */}
-          <div className="flex items-center p-4 bg-gray-50 rounded-lg border border-gray-200">
-            <input
-              type="checkbox"
-              id="usesBatches"
-              checked={usesBatches}
-              onChange={(e) => {
-                setUsesBatches(e.target.checked);
-                if (e.target.checked && !batchName) {
-                  setBatchName('Batch 1');
-                }
-              }}
-              className="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-            />
-            <label htmlFor="usesBatches" className="ml-3 flex-1">
-              <span className="text-sm font-medium text-gray-700">Use Batch System</span>
-              <p className="text-xs text-gray-500 mt-1">
-                Enable this to organize questions into batches for different quiz variations
-              </p>
-            </label>
+          <div>
+            <label htmlFor="topicName" className="block text-sm font-medium text-gray-700 mb-2">First Topic <span className="text-red-500">*</span></label>
+            <input id="topicName" value={topicName} onChange={(event) => setTopicName(event.target.value)} placeholder="e.g., Algebra" className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 ${errors.topicName ? 'border-red-500' : 'border-gray-300'}`} />
+            {errors.topicName && <p className="mt-1 text-sm text-red-600">{errors.topicName}</p>}
           </div>
-
-          {/* Batch Details (conditional) */}
-          {usesBatches && (
-            <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg space-y-4">
-              <h3 className="font-semibold text-amber-900">Batch Configuration</h3>
-              
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label htmlFor="batchNumber" className="block text-sm font-medium text-gray-700 mb-2">
-                    Batch Number <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="number"
-                    id="batchNumber"
-                    value={batchNumber}
-                    onChange={(e) => setBatchNumber(parseInt(e.target.value) || 1)}
-                    min="1"
-                    className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                      errors.batchNumber ? 'border-red-500' : 'border-gray-300'
-                    }`}
-                  />
-                  {errors.batchNumber && (
-                    <p className="mt-1 text-sm text-red-600">{errors.batchNumber}</p>
-                  )}
-                </div>
-
-                <div>
-                  <label htmlFor="batchName" className="block text-sm font-medium text-gray-700 mb-2">
-                    Batch Name <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    id="batchName"
-                    value={batchName}
-                    onChange={(e) => setBatchName(e.target.value)}
-                    className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                      errors.batchName ? 'border-red-500' : 'border-gray-300'
-                    }`}
-                    placeholder="e.g., Batch 1 - Easy"
-                  />
-                  {errors.batchName && (
-                    <p className="mt-1 text-sm text-red-600">{errors.batchName}</p>
-                  )}
-                </div>
-              </div>
-
-              <div className="text-xs text-amber-700 bg-amber-100 p-3 rounded">
-                <strong>Note:</strong> You&apos;re creating {batchName || `Batch ${batchNumber}`}. 
-                After upload, you can add more batches to this question set from the question set management page.
-              </div>
-            </div>
-          )}
 
           {/* File Upload */}
           <div>

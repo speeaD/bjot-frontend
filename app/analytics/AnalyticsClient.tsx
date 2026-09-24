@@ -1,685 +1,629 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import { useState, useMemo, JSXElementConstructor, Key, ReactElement, ReactNode, ReactPortal } from "react";
+import { useMemo, useState } from "react";
 import {
-    BarChart,
-    Bar,
-    LineChart,
-    Line,
-    PieChart,
-    Pie,
-    Cell,
-    XAxis,
-    YAxis,
-    CartesianGrid,
-    Tooltip,
-    Legend,
-    ResponsiveContainer,
+  Area,
+  AreaChart,
+  CartesianGrid,
+  Cell,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
 } from "recharts";
 import {
-    TrendingUp,
-    Users,
-    Clock,
-    Target,
-    AlertCircle,
-    CheckCircle,
-    XCircle,
-    HelpCircle,
+  AlertTriangle,
+  BarChart3,
+  CheckCircle2,
+  ChevronRight,
+  Clock3,
+  Download,
+  Filter,
+  GraduationCap,
+  Target,
+  TrendingUp,
+  Users,
 } from "lucide-react";
-import Sidebar from "../componets/Sidebar";
 
 interface Question {
-    _id: string;
-    type: string;
-    question: string;
-    options?: string[];
-    correctAnswer: string | boolean | string[];
-    points: number;
+  _id: string;
+  question: string;
+  type: string;
+  options?: string[];
 }
-
-interface QuestionSet {
-    order: number;
-    questions: Question[];
-}
-
 interface Quiz {
-    _id: string;
-    settings: {
-        title: string;
-    };
-    questionSets?: QuestionSet[];
-    questions?: Question[];
+  _id: string;
+  settings: { title: string };
+  questionSets?: { questions: Question[] }[];
+  questions?: Question[];
 }
-
-interface QuizSubmission {
-    _id: string;
-    quizId: {
-        settings: {
-            title: string;
-        };
-        _id: string;
-    };
-    quizTakerId: {
-        _id: string;
-        email: string;
-        accessCode: string;
-    };
-    answers: Array<{
-        questionId: string;
-        questionType: string;
-        answer: string | string[] | boolean;
-        isCorrect: boolean;
-        pointsAwarded: number;
-        pointsPossible: number;
-    }>;
-    score: number;
-    totalPoints: number;
-    percentage: number;
-    timeTaken: number;
-    status: string;
-    submittedAt: string;
+interface Submission {
+  _id: string;
+  quizId: { _id: string; settings: { title: string } };
+  quizTakerId: { _id: string };
+  answers: {
+    questionId: string;
+    answer: string | string[] | boolean;
+    isCorrect: boolean;
+  }[];
+  percentage: number;
+  timeTaken: number;
+  status: string;
+  submittedAt: string;
 }
-
-interface AnalyticsData {
-    summaryStats: {
-        totalSubmissions: number;
-        completionRate: number;
-        averageScore: number;
-        averageTime: number;
-        activeUsers: number;
-    };
-    submissionsOverTime: Array<{ date: string; count: number }>;
-    scoreDistribution: Array<{ range: string; count: number }>;
-    quizPerformance: Array<{ name: string; avgScore: number; attempts: number }>;
-    difficultQuestions: Array<{
-        id: string;
-        quizTitle: string;
-        questionText: string;
-        questionType: string;
-        options: string[];
-        correctAnswer: string;
-        correctRate: number;
-        incorrectRate: number;
-        skippedRate: number;
-        difficulty: number;
-        totalAttempts: number;
-        mostPickedAnswer: string;
-        mostPickedPercentage: number;
-    }>;
-}
-
 interface Props {
-    submissions: QuizSubmission[];
-    quizzes: Quiz[];
-    initialAnalytics: AnalyticsData;
+  submissions: Submission[];
+  quizzes: Quiz[];
+  initialAnalytics?: unknown;
+  initialQuizId?: string;
 }
+const PALETTE = ["#d73b36", "#6f7d76", "#004b37", "#ff9423"];
+const time = (seconds: number) => {
+  if (!seconds) return "—";
+  const minutes = Math.floor(seconds / 60);
+  return minutes ? minutes + "m " + (seconds % 60) + "s" : seconds + "s";
+};
 
-// Helper function to build question map
-function buildQuestionMap(quizzes: Quiz[]) {
-    const questionMap = new Map();
-
-    quizzes.forEach(quiz => {
-        // Handle questionSets structure
-        if (quiz.questionSets && Array.isArray(quiz.questionSets)) {
-            quiz.questionSets.forEach(questionSet => {
-                if (questionSet.questions && Array.isArray(questionSet.questions)) {
-                    questionSet.questions.forEach(question => {
-                        questionMap.set(question._id, {
-                            id: question._id,
-                            quizId: quiz._id,
-                            quizTitle: quiz.settings?.title || 'Untitled Quiz',
-                            questionText: question.question,
-                            type: question.type,
-                            options: question.options || [],
-                            correctAnswer: question.correctAnswer,
-                            points: question.points,
-                        });
-                    });
-                }
-            });
-        }
-
-        // Handle legacy flat questions array
-        if (quiz.questions && Array.isArray(quiz.questions)) {
-            quiz.questions.forEach(question => {
-                questionMap.set(question._id, {
-                    id: question._id,
-                    quizId: quiz._id,
-                    quizTitle: quiz.settings?.title || 'Untitled Quiz',
-                    questionText: question.question,
-                    type: question.type,
-                    options: question.options || [],
-                    correctAnswer: question.correctAnswer,
-                    points: question.points,
-                });
-            });
-        }
-    });
-
-    return questionMap;
-}
-
-export default function AnalyticsClient({ submissions, quizzes }: Props) {
-    const [selectedQuiz, setSelectedQuiz] = useState<string>("all");
-    const [dateRange, setDateRange] = useState<string>("30d");
-
-    const COLORS = ["#3B82F6", "#10B981", "#F59E0B", "#EF4444", "#8B5CF6"];
-
-    // Calculate analytics based on filters
-    const analytics = useMemo(() => {
-        // Build question map
-        const questionMap = buildQuestionMap(quizzes);
-
-        // Filter by quiz
-        let filteredSubmissions = selectedQuiz === "all"
-            ? submissions
-            : submissions.filter(s => s.quizId?._id === selectedQuiz);
-
-        // Filter by date range
-        const now = new Date();
-        const filterDate = new Date();
-        const days = dateRange === 'all' ? 365 : parseInt(dateRange.replace('d', ''));
-        filterDate.setDate(now.getDate() - days);
-
-        filteredSubmissions = dateRange === 'all'
-            ? filteredSubmissions
-            : filteredSubmissions.filter(s => new Date(s.submittedAt) >= filterDate);
-
-        // Summary Stats
-        const totalSubmissions = filteredSubmissions.length;
-        const completedSubmissions = filteredSubmissions.filter(
-            (s) => s.status === 'auto-graded' || s.status === 'completed'
-        );
-
-        const completionRate = totalSubmissions > 0
-            ? (completedSubmissions.length / totalSubmissions) * 100
-            : 0;
-
-        const averageScore = completedSubmissions.length > 0
-            ? completedSubmissions.reduce((sum, s) => sum + s.percentage, 0) / completedSubmissions.length
-            : 0;
-
-        const averageTime = completedSubmissions.length > 0
-            ? completedSubmissions.reduce((sum, s) => sum + s.timeTaken, 0) / completedSubmissions.length
-            : 0;
-
-        const activeUsers = new Set(filteredSubmissions.map((s) => s.quizTakerId._id)).size;
-
-        // Submissions Over Time
-        const submissionsOverTime = [];
-        for (let i = days - 1; i >= 0; i--) {
-            const date = new Date();
-            date.setDate(date.getDate() - i);
-            const dateKey = date.toISOString().split('T')[0];
-            const count = filteredSubmissions.filter(s =>
-                s.submittedAt.split('T')[0] === dateKey
-            ).length;
-
-            submissionsOverTime.push({
-                date: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-                count,
-            });
-        }
-
-        // Score Distribution
-        const scoreDistribution = [
-            { range: '0-20%', count: 0 },
-            { range: '21-40%', count: 0 },
-            { range: '41-60%', count: 0 },
-            { range: '61-79%', count: 0 },
-            { range: '80-100%', count: 0 },
-        ];
-
-        completedSubmissions.forEach(submission => {
-            const percentage = submission.percentage;
-            if (percentage <= 20) scoreDistribution[0].count++;
-            else if (percentage <= 40) scoreDistribution[1].count++;
-            else if (percentage <= 60) scoreDistribution[2].count++;
-            else if (percentage <= 80) scoreDistribution[3].count++;
-            else scoreDistribution[4].count++;
-        });
-
-        // Quiz Performance
-        const quizMap = new Map();
-        filteredSubmissions.forEach(submission => {
-            const quizId = submission.quizId?._id;
-            const quizTitle = submission.quizId?.settings?.title || 'Untitled Quiz';
-
-            if (!quizMap.has(quizId)) {
-                quizMap.set(quizId, {
-                    name: quizTitle,
-                    totalScore: 0,
-                    attempts: 0,
-                });
-            }
-
-            const quiz = quizMap.get(quizId);
-            quiz.totalScore += submission.percentage;
-            quiz.attempts += 1;
-        });
-
-        const quizPerformance = Array.from(quizMap.values()).map(quiz => ({
-            name: quiz.name,
-            avgScore: Math.round((quiz.totalScore / quiz.attempts) * 10) / 10,
-            attempts: quiz.attempts,
-        }));
-
-        // Question Analytics with detailed tracking
-        const questionStatsMap = new Map();
-
-        filteredSubmissions.forEach((submission) => {
-            submission.answers.forEach((answer) => {
-                const questionId = answer.questionId;
-
-                if (!questionStatsMap.has(questionId)) {
-                    questionStatsMap.set(questionId, {
-                        questionId: questionId,
-                        correct: 0,
-                        incorrect: 0,
-                        skipped: 0,
-                        answerCounts: new Map(),
-                        totalAttempts: 0,
-                    });
-                }
-
-                const stats = questionStatsMap.get(questionId);
-                stats.totalAttempts += 1;
-
-                if (answer.answer === '' || answer.answer === null || answer.answer === undefined) {
-                    stats.skipped += 1;
-                } else {
-                    const answerKey = Array.isArray(answer.answer)
-                        ? answer.answer.join(',')
-                        : String(answer.answer);
-
-                    stats.answerCounts.set(
-                        answerKey,
-                        (stats.answerCounts.get(answerKey) || 0) + 1
-                    );
-
-                    if (answer.isCorrect) {
-                        stats.correct += 1;
-                    } else {
-                        stats.incorrect += 1;
-                    }
-                }
-            });
-        });
-
-        // Build detailed question analytics
-        const difficultQuestions = Array.from(questionStatsMap.entries())
-            .map(([questionId, stats]) => {
-                const questionData = questionMap.get(questionId);
-                const total = stats.totalAttempts;
-
-                // Find most picked answer
-                let mostPickedAnswer = 'N/A';
-                let mostPickedCount = 0;
-
-                stats.answerCounts.forEach((count: number, answer: string) => {
-                    if (count > mostPickedCount) {
-                        mostPickedCount = count;
-                        mostPickedAnswer = answer;
-                    }
-                });
-
-                const mostPickedPercentage = total > 0
-                    ? Math.round((mostPickedCount / total) * 100)
-                    : 0;
-
-                // Format correct answer for display
-                let correctAnswerDisplay = 'N/A';
-                if (questionData) {
-                    if (typeof questionData.correctAnswer === 'boolean') {
-                        correctAnswerDisplay = questionData.correctAnswer ? 'True' : 'False';
-                    } else if (Array.isArray(questionData.correctAnswer)) {
-                        correctAnswerDisplay = questionData.correctAnswer.join(', ');
-                    } else {
-                        correctAnswerDisplay = String(questionData.correctAnswer);
-                    }
-                }
-
-                return {
-                    id: questionId,
-                    quizTitle: questionData?.quizTitle || 'Unknown Quiz',
-                    questionText: questionData?.questionText || `Question ${questionId.slice(-6)}`,
-                    questionType: questionData?.type || 'unknown',
-                    options: questionData?.options || [],
-                    correctAnswer: correctAnswerDisplay,
-                    correctRate: total > 0 ? Math.round((stats.correct / total) * 100) : 0,
-                    incorrectRate: total > 0 ? Math.round((stats.incorrect / total) * 100) : 0,
-                    skippedRate: total > 0 ? Math.round((stats.skipped / total) * 100) : 0,
-                    difficulty: total > 0 ? Math.round(((stats.incorrect + stats.skipped) / total) * 100) : 0,
-                    totalAttempts: total,
-                    mostPickedAnswer: mostPickedAnswer,
-                    mostPickedPercentage: mostPickedPercentage,
-                };
-            })
-            .filter(q => q.totalAttempts > 0)
-            .sort((a, b) => b.difficulty - a.difficulty)
-            .slice(0, 10);
-
-        return {
-            summaryStats: {
-                totalSubmissions,
-                completionRate: Math.round(completionRate * 10) / 10,
-                averageScore: Math.round(averageScore * 10) / 10,
-                averageTime: Math.round(averageTime),
-                activeUsers,
-            },
-            submissionsOverTime,
-            scoreDistribution,
-            quizPerformance,
-            difficultQuestions,
-        };
-    }, [submissions, quizzes, selectedQuiz, dateRange]);
-
-    const formatTime = (seconds: number) => {
-        if (seconds < 60) return `${seconds}s`;
-        const minutes = Math.floor(seconds / 60);
-        const remainingSeconds = seconds % 60;
-        return `${minutes}m ${remainingSeconds}s`;
-    };
-
-    return (
-        <div className="min-h-screen bg-gray-50">
-            <div className="max-w-7xl mx-auto px-3 py-8">
-                <div className="grid grid-cols-12 gap-6">
-                    {/* Left Sidebar */}
-                    <Sidebar />
-
-                    {/* Main Content */}
-                    <div className="col-span-9">
-                        <div className="bg-white rounded-lg shadow mb-6 p-6">
-                            {/* Header */}
-                            <div className="flex items-center justify-between mb-6">
-                                <h2 className="text-2xl font-semibold text-gray-800">
-                                    Analytics Dashboard
-                                </h2>
-                                <div className="flex gap-4">
-                                    {/* Date Range Filter */}
-                                    <select
-                                        value={dateRange}
-                                        onChange={(e) => setDateRange(e.target.value)}
-                                        className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                    >
-                                        <option value="7d">Last 7 Days</option>
-                                        <option value="30d">Last 30 Days</option>
-                                        <option value="90d">Last 90 Days</option>
-                                        <option value="all">All Time</option>
-                                    </select>
-
-                                    {/* Quiz Filter */}
-                                    <select
-                                        value={selectedQuiz}
-                                        onChange={(e) => setSelectedQuiz(e.target.value)}
-                                        className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                    >
-                                        <option value="all">All Quizzes</option>
-                                        {quizzes.map((quiz) => (
-                                            <option key={quiz._id} value={quiz._id}>
-                                                {quiz.settings.title}
-                                            </option>
-                                        ))}
-                                    </select>
-                                </div>
-                            </div>
-
-                            {/* Summary Cards */}
-                            <div className="grid grid-cols-5 gap-4 mb-6">
-                                <div className="bg-white rounded-lg shadow p-5">
-                                    <div className="flex items-center justify-between mb-2">
-                                        <TrendingUp className="w-8 h-8 text-blue-500" />
-                                    </div>
-                                    <div className="text-2xl font-bold text-gray-800">
-                                        {analytics.summaryStats.totalSubmissions}
-                                    </div>
-                                    <div className="text-sm text-gray-500">Total Submissions</div>
-                                </div>
-
-                                <div className="bg-white rounded-lg shadow p-5">
-                                    <div className="flex items-center justify-between mb-2">
-                                        <Target className="w-8 h-8 text-green-500" />
-                                    </div>
-                                    <div className="text-2xl font-bold text-gray-800">
-                                        {analytics.summaryStats.completionRate}%
-                                    </div>
-                                    <div className="text-sm text-gray-500">Completion Rate</div>
-                                </div>
-
-                                <div className="bg-white rounded-lg shadow p-5">
-                                    <div className="flex items-center justify-between mb-2">
-                                        <BarChart className="w-8 h-8 text-purple-500" />
-                                    </div>
-                                    <div className="text-2xl font-bold text-gray-800">
-                                        {analytics.summaryStats.averageScore}%
-                                    </div>
-                                    <div className="text-sm text-gray-500">Average Score</div>
-                                </div>
-
-                                <div className="bg-white rounded-lg shadow p-5">
-                                    <div className="flex items-center justify-between mb-2">
-                                        <Clock className="w-8 h-8 text-orange-500" />
-                                    </div>
-                                    <div className="text-2xl font-bold text-gray-800">
-                                        {formatTime(analytics.summaryStats.averageTime)}
-                                    </div>
-                                    <div className="text-sm text-gray-500">Avg Time Taken</div>
-                                </div>
-
-                                <div className="bg-white rounded-lg shadow p-5">
-                                    <div className="flex items-center justify-between mb-2">
-                                        <Users className="w-8 h-8 text-indigo-500" />
-                                    </div>
-                                    <div className="text-2xl font-bold text-gray-800">
-                                        {analytics.summaryStats.activeUsers}
-                                    </div>
-                                    <div className="text-sm text-gray-500">Active Users</div>
-                                </div>
-                            </div>
-
-                            {/* Submissions Over Time */}
-                            <div className="bg-white rounded-lg shadow p-6 mb-6">
-                                <h3 className="text-lg font-semibold text-gray-800 mb-4">
-                                    Quiz Attempts Over Time
-                                </h3>
-                                <ResponsiveContainer width="100%" height={300}>
-                                    <LineChart data={analytics.submissionsOverTime}>
-                                        <CartesianGrid strokeDasharray="3 3" />
-                                        <XAxis dataKey="date" />
-                                        <YAxis />
-                                        <Tooltip />
-                                        <Legend />
-                                        <Line
-                                            type="monotone"
-                                            dataKey="count"
-                                            stroke="#3B82F6"
-                                            strokeWidth={2}
-                                            name="Submissions"
-                                        />
-                                    </LineChart>
-                                </ResponsiveContainer>
-                            </div>
-
-                            {/* Score Distribution and Quiz Performance */}
-                            <div className="grid grid-cols-2 gap-6 mb-6">
-                                {/* Score Distribution */}
-                                <div className="bg-white rounded-lg shadow p-6">
-                                    <h3 className="text-lg font-semibold text-gray-800 mb-4">
-                                        Score Distribution
-                                    </h3>
-                                    <ResponsiveContainer width="100%" height={300}>
-                                        <PieChart>
-                                            <Pie
-                                                data={analytics.scoreDistribution}
-                                                cx="50%"
-                                                cy="50%"
-                                                labelLine={false}
-                                                label={({ payload }) => `${payload.range}: ${payload.count}`}
-                                                outerRadius={80}
-                                                fill="#8884d8"
-                                                dataKey="count"
-                                            >
-                                                {analytics.scoreDistribution.map((entry, index) => (
-                                                    <Cell
-                                                        key={`cell-${index}`}
-                                                        fill={COLORS[index % COLORS.length]}
-                                                    />
-                                                ))}
-                                            </Pie>
-                                            <Tooltip />
-                                        </PieChart>
-                                    </ResponsiveContainer>
-                                </div>
-
-                                {/* Quiz Performance Comparison */}
-                                <div className="bg-white rounded-lg shadow p-6">
-                                    <h3 className="text-lg font-semibold text-gray-800 mb-4">
-                                        Quiz Performance Comparison
-                                    </h3>
-                                    <ResponsiveContainer width="100%" height={300}>
-                                        <BarChart data={analytics.quizPerformance}>
-                                            <CartesianGrid strokeDasharray="3 3" />
-                                            <XAxis dataKey="name" />
-                                            <YAxis />
-                                            <Tooltip />
-                                            <Legend />
-                                            <Bar dataKey="avgScore" fill="#10B981" name="Avg Score %" />
-                                            <Bar dataKey="attempts" fill="#3B82F6" name="Attempts" />
-                                        </BarChart>
-                                    </ResponsiveContainer>
-                                </div>
-                            </div>
-
-                            {/* Most Difficult Questions */}
-                            <div className="bg-white rounded-lg shadow p-6">
-                                <div className="flex items-center gap-2 mb-4">
-                                    <AlertCircle className="w-5 h-5 text-red-500" />
-                                    <h3 className="text-lg font-semibold text-gray-800">
-                                        Most Difficult Questions
-                                    </h3>
-                                </div>
-                                {analytics.difficultQuestions.length > 0 ? (
-                                    <div className="space-y-4">
-                                        {analytics.difficultQuestions.map((question, index) => (
-                                            <div
-                                                key={question.id}
-                                                className="border border-gray-200 rounded-lg p-5 hover:shadow-md transition-shadow"
-                                            >
-                                                {/* Question Header */}
-                                                <div className="flex items-start justify-between mb-4">
-                                                    <div className="flex-1">
-                                                        <div className="flex items-center gap-2 mb-2">
-                                                            <span className="px-3 py-1 bg-red-100 text-red-800 text-xs font-semibold rounded-full">
-                                                                #{index + 1} Most Difficult ({question.difficulty}%)
-                                                            </span>
-                                                            <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded">
-                                                                {question.questionType}
-                                                            </span>
-                                                            <span className="text-xs text-gray-500">
-                                                                {question.totalAttempts} attempts
-                                                            </span>
-                                                        </div>
-                                                        <p className="text-xs text-gray-500 mb-2">
-                                                            Quiz: {question.quizTitle}
-                                                        </p>
-                                                        <p className="text-base font-medium text-gray-900 mb-3">
-                                                            {question.questionText}
-                                                        </p>
-                                                    </div>
-                                                </div>
-
-                                                {/* Question Details in 2 Column Grid */}
-                                                <div className="grid grid-cols-2 gap-4 mb-4">
-                                                    {/* Left Column - Answer Info */}
-                                                    <div className="space-y-3">
-                                                        <div className="bg-green-50 rounded-lg p-3 border border-green-200">
-                                                            <div className="flex items-center gap-2 mb-1">
-                                                                <CheckCircle className="w-4 h-4 text-green-600" />
-                                                                <span className="text-xs font-semibold text-green-800">
-                                                                    Correct Answer
-                                                                </span>
-                                                            </div>
-                                                            <p className="text-sm text-gray-800 font-medium">
-                                                                {question.correctAnswer}
-                                                            </p>
-                                                        </div>
-
-                                                        <div className="bg-orange-50 rounded-lg p-3 border border-orange-200">
-                                                            <div className="flex items-center gap-2 mb-1">
-                                                                <HelpCircle className="w-4 h-4 text-orange-600" />
-                                                                <span className="text-xs font-semibold text-orange-800">
-                                                                    Most Picked Answer
-                                                                </span>
-                                                            </div>
-                                                            <p className="text-sm text-gray-800 font-medium">
-                                                                {question.mostPickedAnswer}
-                                                            </p>
-                                                            <p className="text-xs text-gray-600 mt-1">
-                                                                {question.mostPickedPercentage}% of attempts
-                                                            </p>
-                                                        </div>
-                                                    </div>
-
-                                                    {/* Right Column - Statistics */}
-                                                    <div className="grid grid-cols-3 gap-2">
-                                                        <div className="bg-green-50 rounded-lg p-3 text-center border border-green-200">
-                                                            <CheckCircle className="w-5 h-5 text-green-600 mx-auto mb-1" />
-                                                            <div className="text-lg font-bold text-green-700">
-                                                                {question.correctRate}%
-                                                            </div>
-                                                            <div className="text-xs text-gray-600">Correct</div>
-                                                        </div>
-                                                        <div className="bg-red-50 rounded-lg p-3 text-center border border-red-200">
-                                                            <XCircle className="w-5 h-5 text-red-600 mx-auto mb-1" />
-                                                            <div className="text-lg font-bold text-red-700">
-                                                                {question.incorrectRate}%
-                                                            </div>
-                                                            <div className="text-xs text-gray-600">Incorrect</div>
-                                                        </div>
-                                                        <div className="bg-gray-50 rounded-lg p-3 text-center border border-gray-200">
-                                                            <HelpCircle className="w-5 h-5 text-gray-600 mx-auto mb-1" />
-                                                            <div className="text-lg font-bold text-gray-700">
-                                                                {question.skippedRate}%
-                                                            </div>
-                                                            <div className="text-xs text-gray-600">Skipped</div>
-                                                        </div>
-                                                    </div>
-                                                </div>
-
-                                                {/* Options Display (for multiple choice) */}
-                                                {question.options.length > 0 && (
-                                                    <div className="mt-3 pt-3 border-t border-gray-200">
-                                                        <p className="text-xs font-semibold text-gray-600 mb-2">
-                                                            Available Options:
-                                                        </p>
-                                                        <div className="flex flex-wrap gap-2">
-                                                            {question.options.map((option: string | number | bigint | boolean | ReactElement<unknown, string | JSXElementConstructor<any>> | Iterable<ReactNode> | ReactPortal | Promise<string | number | bigint | boolean | ReactPortal | ReactElement<unknown, string | JSXElementConstructor<any>> | Iterable<ReactNode> | null | undefined> | null | undefined, idx: Key | null | undefined) => (
-                                                                <span
-                                                                    key={idx}
-                                                                    className="px-3 py-1 bg-gray-100 text-gray-700 text-xs rounded-full border border-gray-300"
-                                                                >
-                                                                    {option}
-                                                                </span>
-                                                            ))}
-                                                        </div>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        ))}
-                                    </div>
-                                ) : (
-                                    <div className="text-center py-12">
-                                        <AlertCircle className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-                                        <p className="text-gray-500">No question data available</p>
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
+function getQuestions(quizzes: Quiz[]) {
+  const map = new Map<string, { title: string; question: Question }>();
+  quizzes.forEach((quiz) => {
+    const questions = [
+      ...(quiz.questions || []),
+      ...(quiz.questionSets || []).flatMap((set) => set.questions || []),
+    ];
+    questions.forEach((question) =>
+      map.set(question._id, { title: quiz.settings.title, question }),
     );
+  });
+  return map;
+}
+
+export default function AnalyticsClient({
+  submissions,
+  quizzes,
+  initialQuizId,
+}: Props) {
+  const [range, setRange] = useState("30");
+  const [quizId, setQuizId] = useState(initialQuizId || "all");
+  const [metric, setMetric] = useState<"submissions" | "score">("submissions");
+
+  const analytics = useMemo(() => {
+    const days = Number(range);
+    const since = new Date();
+    since.setDate(since.getDate() - days);
+    const filtered = submissions.filter(
+      (item) =>
+        (quizId === "all" || item.quizId?._id === quizId) &&
+        new Date(item.submittedAt) >= since,
+    );
+    const completed = filtered.filter(
+      (item) => item.status === "auto-graded" || item.status === "completed",
+    );
+    const questionMap = getQuestions(quizzes);
+    const averageScore = completed.length
+      ? completed.reduce((sum, item) => sum + item.percentage, 0) /
+        completed.length
+      : 0;
+    const averageTime = completed.length
+      ? completed.reduce((sum, item) => sum + item.timeTaken, 0) /
+        completed.length
+      : 0;
+    const trend = Array.from({ length: days }, (_, index) => {
+      const current = new Date();
+      current.setDate(current.getDate() - (days - 1 - index));
+      const key = current.toISOString().slice(0, 10);
+      const values = filtered.filter(
+        (item) => item.submittedAt?.slice(0, 10) === key,
+      );
+      return {
+        date: current.toLocaleDateString("en-US", {
+          month: "short",
+          day: "numeric",
+        }),
+        submissions: values.length,
+        score: values.length
+          ? Math.round(
+              values.reduce((sum, item) => sum + item.percentage, 0) /
+                values.length,
+            )
+          : 0,
+      };
+    });
+    const distribution = [
+      { range: "0–39%", value: 0 },
+      { range: "40–59%", value: 0 },
+      { range: "60–79%", value: 0 },
+      { range: "80–100%", value: 0 },
+    ];
+    completed.forEach(
+      (item) =>
+        distribution[
+          item.percentage < 40
+            ? 0
+            : item.percentage < 60
+              ? 1
+              : item.percentage < 80
+                ? 2
+                : 3
+        ].value++,
+    );
+    const tracks = new Map<
+      string,
+      { name: string; sum: number; count: number }
+    >();
+    filtered.forEach((item) => {
+      const id = item.quizId?._id || "unknown";
+      const value = tracks.get(id) || {
+        name: item.quizId?.settings?.title || "Untitled assessment",
+        sum: 0,
+        count: 0,
+      };
+      value.sum += item.percentage;
+      value.count++;
+      tracks.set(id, value);
+    });
+    const performance = Array.from(tracks.values())
+      .map((item) => ({
+        name: item.name,
+        average: Math.round((item.sum / item.count) * 10) / 10,
+        count: item.count,
+      }))
+      .sort((a, b) => b.average - a.average)
+      .slice(0, 5);
+    const stats = new Map<
+      string,
+      { total: number; correct: number; answers: Map<string, number> }
+    >();
+    filtered.forEach((item) =>
+      item.answers?.forEach((answer) => {
+        const value = stats.get(answer.questionId) || {
+          total: 0,
+          correct: 0,
+          answers: new Map(),
+        };
+        value.total++;
+        if (answer.isCorrect) value.correct++;
+        if (answer.answer !== "") {
+          const label = Array.isArray(answer.answer)
+            ? answer.answer.join(", ")
+            : String(answer.answer);
+          value.answers.set(label, (value.answers.get(label) || 0) + 1);
+        }
+        stats.set(answer.questionId, value);
+      }),
+    );
+    const difficult = Array.from(stats.entries())
+      .map(([id, stat]) => {
+        const details = questionMap.get(id);
+        const pick = Array.from(stat.answers.entries()).sort(
+          (a, b) => b[1] - a[1],
+        )[0];
+        return {
+          id,
+          title: details?.title || "Assessment",
+          text: details?.question.question || "Question unavailable",
+          type: details?.question.type || "Question",
+          accuracy: Math.round((stat.correct / stat.total) * 100),
+          answer: pick?.[0] || "Not answered",
+          pickRate: pick ? Math.round((pick[1] / stat.total) * 100) : 0,
+          attempts: stat.total,
+        };
+      })
+      .sort((a, b) => a.accuracy - b.accuracy)
+      .slice(0, 3);
+    return {
+      filtered,
+      completed,
+      averageScore,
+      averageTime,
+      trend,
+      distribution,
+      performance,
+      difficult,
+      active: new Set(filtered.map((item) => item.quizTakerId?._id)).size,
+    };
+  }, [submissions, quizzes, range, quizId]);
+
+  const completion = analytics.filtered.length
+    ? (analytics.completed.length / analytics.filtered.length) * 100
+    : 0;
+  return (
+    <main className="min-h-screen bg-[#f5f7f6] px-4 pb-10 pt-5 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-[1440px]">
+        <header className="mb-4 flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+          <div>
+            
+            <h1 className="text-2xl font-bold tracking-tight text-[#091d15] sm:text-3xl">
+              Students analytics &amp; performance
+            </h1>
+            <p className="mt-1 max-w-2xl text-sm text-slate-500">
+              Real-time cohort diagnostics, attempt velocity, score patterns,
+              and question-level insights.
+            </p>
+          </div>
+          <button
+            onClick={() => window.print()}
+            className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#004b37] px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-[#003b2c]"
+          >
+            <Download className="h-4 w-4" /> Export PDF report
+          </button>
+        </header>
+
+        <section className="mb-4 rounded-xl border border-[#e5ebe8] bg-white p-3 shadow-sm">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+            <div className="flex flex-wrap gap-1">
+              <span className="inline-flex items-center gap-2 rounded-lg bg-[#ecf2ef] px-3 py-2 text-xs font-semibold text-[#004b37]">
+                <Filter className="h-3.5 w-3.5" /> Last {range} days
+              </span>
+              {["7", "30", "90"].map((value) => (
+                <button
+                  key={value}
+                  onClick={() => setRange(value)}
+                  className={
+                    "rounded-lg px-3 py-2 text-xs font-semibold " +
+                    (range === value
+                      ? "bg-[#004b37] text-white"
+                      : "text-slate-500 hover:bg-slate-50")
+                  }
+                >
+                  {value} days
+                </button>
+              ))}
+            </div>
+            <div className="h-5 w-px bg-slate-200" />
+            <select
+              value={quizId}
+              onChange={(event) => setQuizId(event.target.value)}
+              className="rounded-lg border border-slate-200 px-3 py-2 text-xs text-slate-600"
+            >
+              <option value="all">All examinations</option>
+              {quizzes.map((quiz) => (
+                <option key={quiz._id} value={quiz._id}>
+                  {quiz.settings.title}
+                </option>
+              ))}
+            </select>
+            <span className="ml-auto flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[.12em] text-slate-500">
+              <span className="h-1.5 w-1.5 rounded-full bg-[#ff9423]" />{" "}
+              Telemetry synced
+            </span>
+          </div>
+        </section>
+
+        <section className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
+          <Metric
+            icon={<TrendingUp />}
+            label="Total submissions"
+            value={analytics.filtered.length.toLocaleString()}
+            caption={analytics.active + " active candidates"}
+            tone="emerald"
+          />
+          <Metric
+            icon={<CheckCircle2 />}
+            label="Completion rate"
+            value={completion.toFixed(1) + "%"}
+            caption="Completed / total attempts"
+            tone="mint"
+          />
+          <Metric
+            icon={<Target />}
+            label="Average score"
+            value={analytics.averageScore.toFixed(1) + "%"}
+            caption="Across completed attempts"
+            tone="orange"
+          />
+          <Metric
+            icon={<Clock3 />}
+            label="Pacing / item"
+            value={time(analytics.averageTime)}
+            caption="Mean attempt time"
+            tone="slate"
+          />
+          <Metric
+            icon={<Users />}
+            label="Active examinees"
+            value={analytics.active.toLocaleString()}
+            caption="Current selected range"
+            tone="emerald"
+          />
+        </section>
+
+        <section className="mb-4 rounded-xl border border-[#e5ebe8] bg-white p-5 shadow-sm">
+          <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <h2 className="text-lg font-bold text-[#101f19]">
+                Quiz attempts &amp; submission velocity
+              </h2>
+              <p className="mt-0.5 text-xs text-slate-500">
+                Tracking daily completed attempts and mean cohort score.
+              </p>
+            </div>
+            <div className="flex rounded-lg bg-[#f0f3f1] p-1">
+              {(["submissions", "score"] as const).map((value) => (
+                <button
+                  key={value}
+                  onClick={() => setMetric(value)}
+                  className={
+                    "rounded-md px-3 py-1.5 text-[11px] font-semibold " +
+                    (metric === value
+                      ? "bg-white text-[#004b37] shadow-sm"
+                      : "text-slate-500")
+                  }
+                >
+                  {value === "submissions" ? "Daily" : "Avg. score"}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="h-[260px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={analytics.trend}>
+                <defs>
+                  <linearGradient
+                    id="analytics-submissions"
+                    x1="0"
+                    x2="0"
+                    y1="0"
+                    y2="1"
+                  >
+                    <stop offset="0%" stopColor="#004b37" stopOpacity=".25" />
+                    <stop offset="100%" stopColor="#004b37" stopOpacity="0" />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid vertical={false} stroke="#edf0ee" />
+                <XAxis
+                  dataKey="date"
+                  tick={{ fontSize: 10, fill: "#758079" }}
+                  axisLine={false}
+                  tickLine={false}
+                  minTickGap={30}
+                />
+                <YAxis
+                  tick={{ fontSize: 10, fill: "#758079" }}
+                  axisLine={false}
+                  tickLine={false}
+                />
+                <Tooltip
+                  contentStyle={{
+                    borderRadius: 10,
+                    border: "1px solid #e5ebe8",
+                    fontSize: 12,
+                  }}
+                />
+                <Area
+                  type="monotone"
+                  dataKey={metric}
+                  name={
+                    metric === "submissions" ? "Submissions" : "Average score"
+                  }
+                  stroke="#004b37"
+                  fill="url(#analytics-submissions)"
+                  strokeWidth={2.5}
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+          <div className="mt-3 flex flex-wrap gap-5 border-t border-slate-100 pt-3 text-xs">
+            <span className="text-slate-500">
+              Peak daily session{" "}
+              <b className="ml-1 text-[#15271f]">
+                {Math.max(
+                  0,
+                  ...analytics.trend.map((item) => item.submissions),
+                )}{" "}
+                submissions
+              </b>
+            </span>
+            <span className="text-slate-500">
+              Mean cohort score{" "}
+              <b className="ml-1 text-[#15271f]">
+                {analytics.averageScore.toFixed(1)}%
+              </b>
+            </span>
+          </div>
+        </section>
+
+        <section className="mb-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <article className="rounded-xl border border-[#e5ebe8] bg-white p-5 shadow-sm">
+            <div className="mb-4 flex items-center justify-between">
+              <div>
+                <h2 className="text-lg font-bold text-[#101f19]">
+                  Cohort score distribution
+                </h2>
+                <p className="text-xs text-slate-500">
+                  Where candidate outcomes are clustering.
+                </p>
+              </div>
+              <GraduationCap className="h-5 w-5 text-[#ff9423]" />
+            </div>
+            <div className="h-52">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={analytics.distribution}
+                    dataKey="value"
+                    nameKey="range"
+                    innerRadius={52}
+                    outerRadius={78}
+                    paddingAngle={3}
+                  >
+                    {analytics.distribution.map((item, index) => (
+                      <Cell key={item.range} fill={PALETTE[index]} />
+                    ))}
+                  </Pie>
+                  <Tooltip />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              {analytics.distribution.map((item, index) => (
+                <div
+                  key={item.range}
+                  className="flex items-center justify-between rounded bg-[#f5f7f6] px-2.5 py-2 text-[11px] text-slate-600"
+                >
+                  <span>
+                    <i
+                      className="mr-1.5 inline-block h-2 w-2 rounded-full"
+                      style={{ background: PALETTE[index] }}
+                    />
+                    {item.range}
+                  </span>
+                  <b className="text-[#15271f]">{item.value}</b>
+                </div>
+              ))}
+            </div>
+          </article>
+          <article className="rounded-xl border border-[#e5ebe8] bg-white p-5 shadow-sm">
+            <div className="mb-4">
+              <h2 className="text-lg font-bold text-[#101f19]">
+                Exam performance comparison
+              </h2>
+              <p className="text-xs text-slate-500">
+                Average score across assessed examination tracks.
+              </p>
+            </div>
+            <div className="space-y-4">
+              {analytics.performance.length ? (
+                analytics.performance.map((track, index) => (
+                  <div key={track.name}>
+                    <div className="mb-1.5 flex justify-between gap-3 text-xs">
+                      <span className="truncate font-semibold text-[#24342d]">
+                        {track.name}
+                      </span>
+                      <span className="font-bold text-[#004b37]">
+                        {track.average}%
+                      </span>
+                    </div>
+                    <div className="h-2 overflow-hidden rounded-full bg-[#edf1ef]">
+                      <div
+                        className="h-full rounded-full"
+                        style={{
+                          width: track.average + "%",
+                          background:
+                            index === 0
+                              ? "#004b37"
+                              : index === 1
+                                ? "#ff9423"
+                                : "#849089",
+                        }}
+                      />
+                    </div>
+                    <p className="mt-1 text-[10px] text-slate-400">
+                      {track.count} attempt{track.count === 1 ? "" : "s"}
+                    </p>
+                  </div>
+                ))
+              ) : (
+                <p className="py-12 text-center text-sm text-slate-500">
+                  No completed examination data yet.
+                </p>
+              )}
+            </div>
+            <button className="mt-5 inline-flex items-center gap-1 text-xs font-semibold text-[#a74408]">
+              View exam breakdown <ChevronRight className="h-3.5 w-3.5" />
+            </button>
+          </article>
+        </section>
+
+        <section className="rounded-xl border border-[#e5ebe8] bg-white p-5 shadow-sm">
+          <div className="mb-4 flex items-start justify-between">
+            <div>
+              <h2 className="flex items-center gap-2 text-lg font-bold text-[#101f19]">
+                <AlertTriangle className="h-4 w-4 text-[#d73b36]" /> Most
+                challenging questions &amp; distractor analysis
+              </h2>
+              <p className="mt-0.5 text-xs text-slate-500">
+                High-yield diagnostics flagging the lowest cohort accuracy and
+                misconceptions.
+              </p>
+            </div>
+            <span className="hidden rounded bg-[#fff0e3] px-2 py-1 text-[10px] font-bold text-[#a4440a] sm:block">
+              Failure rate &gt; 60%
+            </span>
+          </div>
+          <div className="space-y-3">
+            {analytics.difficult.length ? (
+              analytics.difficult.map((item, index) => (
+                <article
+                  key={item.id}
+                  className="grid gap-3 rounded-lg bg-[#f5f7f6] p-4 md:grid-cols-[auto_1fr_auto] md:items-center"
+                >
+                  <div className="rounded bg-[#ffe1de] px-2 py-1 text-center text-[10px] font-bold text-[#ba211b]">
+                    {item.type.slice(0, 3).toUpperCase()}
+                    <br />
+                    Q.{index + 1}
+                  </div>
+                  <div>
+                    <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                      {item.title}
+                    </p>
+                    <h3 className="line-clamp-1 text-sm font-semibold text-[#182922]">
+                      {item.text}
+                    </h3>
+                    <p className="mt-1 text-[11px] text-slate-500">
+                      Most selected:{" "}
+                      <b className="text-[#a4440a]">{item.answer}</b> (
+                      {item.pickRate}%) · {item.attempts} attempts
+                    </p>
+                  </div>
+                  <div className="text-left md:text-right">
+                    <p className="text-xl font-bold text-[#ba211b]">
+                      {item.accuracy}%
+                    </p>
+                    <p className="text-[10px] font-bold uppercase tracking-[.12em] text-slate-400">
+                      Cohort accuracy
+                    </p>
+                  </div>
+                </article>
+              ))
+            ) : (
+              <p className="py-10 text-center text-sm text-slate-500">
+                Question diagnostic data will appear after candidates submit
+                answers.
+              </p>
+            )}
+          </div>
+        </section>
+      </div>
+    </main>
+  );
+}
+
+function Metric({
+  icon,
+  label,
+  value,
+  caption,
+  tone,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+  caption: string;
+  tone: "emerald" | "mint" | "orange" | "slate";
+}) {
+  const colors = {
+    emerald: "bg-[#e7f5ed] text-[#004b37]",
+    mint: "bg-[#e9f8f3] text-[#176148]",
+    orange: "bg-[#fff0e4] text-[#a4440a]",
+    slate: "bg-[#edf0ef] text-[#4f5d57]",
+  };
+  return (
+    <article className="rounded-xl border border-[#e5ebe8] bg-white p-4 shadow-sm">
+      <span
+        className={
+          "mb-3 grid h-8 w-8 place-items-center rounded-lg " + colors[tone]
+        }
+      >
+        {icon}
+      </span>
+      <p className="text-[10px] font-bold uppercase tracking-[.13em] text-slate-500">
+        {label}
+      </p>
+      <p className="mt-1 text-2xl font-bold text-[#091d15]">{value}</p>
+      <p className="mt-1 text-[11px] text-slate-500">{caption}</p>
+    </article>
+  );
 }

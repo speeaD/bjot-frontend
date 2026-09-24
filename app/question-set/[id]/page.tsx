@@ -1,411 +1,65 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-// app/question-sets/[id]/page.tsx
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { 
-  FileText, Award, Plus, Upload, Trash2, Edit, Eye, ToggleLeft, ToggleRight, 
-  AlertTriangle, Download 
-} from 'lucide-react';
-import Sidebar from "@/app/componets/Sidebar"; // adjust path
+import { ArrowLeft, BookOpen, FileQuestion, Plus, Power, Upload } from 'lucide-react';
 
-interface Question {
-  _id?: string;
-  type: string;
-  question: string;
-  options?: string[];
-  correctAnswer?: any;
-  points: number;
-  order: number;
-}
-
-interface Batch {
-  _id: string;
-  batchNumber: number;
-  name: string;
-  questions: Question[];
-  isActive: boolean;
-  questionCount?: number; // we'll compute if not in API
-}
-
-interface QuestionSet {
-  _id: string;
-  title: string;
-  questionCount: number;
-  totalPoints: number;
-  isActive: boolean;
-  createdAt: string;
-  createdBy: { email: string };
-  usesBatches: boolean;
-  batches?: Batch[];
-  questions?: Question[]; // legacy
-}
+interface Topic { id: string; name: string; isActive: boolean; _count?: { questions: number } }
+interface QuestionSet { id: string; title: string; questionCount: number; totalPoints: number; isActive: boolean; createdBy?: { email: string } }
 
 export default function QuestionSetDetail() {
-  const { id } = useParams();
+  const { id } = useParams<{ id: string }>();
   const router = useRouter();
-
-  const [questionSet, setQuestionSet] = useState<QuestionSet | null>(null);
+  const [set, setSet] = useState<QuestionSet | null>(null);
+  const [topics, setTopics] = useState<Topic[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState('');
+  const [topicName, setTopicName] = useState('');
+  const [newTopicOpen, setNewTopicOpen] = useState(false);
+  const [uploadTopic, setUploadTopic] = useState<Topic | null>(null);
+  const [file, setFile] = useState<File | null>(null);
+  const [saving, setSaving] = useState(false);
 
-  // Add batch modal
-  const [showAddBatchModal, setShowAddBatchModal] = useState(false);
-  const [newBatchName, setNewBatchName] = useState('');
-  const [newBatchNumber, setNewBatchNumber] = useState<number | ''>('');
-  const [batchFile, setBatchFile] = useState<File | null>(null);
-  const [uploading, setUploading] = useState(false);
-
-  useEffect(() => {
-    if (id) fetchQuestionSet();
-  }, [id]);
-
-  const fetchQuestionSet = async () => {
+  const refresh = async () => {
     try {
       setLoading(true);
-      const res = await fetch(`/api/questionset/${id}`);
-      const data = await res.json();
+      const [setResponse, topicsResponse] = await Promise.all([fetch(`/api/questionset/${id}`, { cache: 'no-store' }), fetch(`/api/questionset/${id}/topics`, { cache: 'no-store' })]);
+      const [setData, topicsData] = await Promise.all([setResponse.json(), topicsResponse.json()]);
+      if (!setResponse.ok) throw new Error(setData.message || 'Could not load subject');
+      if (!topicsResponse.ok) throw new Error(topicsData.message || 'Could not load topics');
+      setSet({ ...setData.questionSet, id: setData.questionSet.id || setData.questionSet._id });
+      setTopics((topicsData.topics || []).map((topic: Topic & { _id?: string }) => ({ ...topic, id: topic.id || topic._id || '' })));
+      setError('');
+    } catch (reason) { setError(reason instanceof Error ? reason.message : 'Could not load subject'); }
+    finally { setLoading(false); }
+  };
+  useEffect(() => { if (id) refresh(); }, [id]);
 
-      if (!data.success) throw new Error(data.message || 'Failed to load');
-      
-      setQuestionSet(data.questionSet);
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
+  const createTopic = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!topicName.trim()) return;
+    try { setSaving(true); const response = await fetch(`/api/questionset/${id}/topics`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: topicName.trim() }) }); const data = await response.json(); if (!response.ok) throw new Error(data.message || 'Could not create topic'); setTopicName(''); setNewTopicOpen(false); await refresh(); }
+    catch (reason) { alert(reason instanceof Error ? reason.message : 'Could not create topic'); }
+    finally { setSaving(false); }
+  };
+  const toggleTopic = async (topic: Topic) => {
+    try { const response = await fetch(`/api/questionset/${id}/topics/${topic.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ isActive: !topic.isActive }) }); const data = await response.json(); if (!response.ok) throw new Error(data.message); await refresh(); }
+    catch (reason) { alert(reason instanceof Error ? reason.message : 'Could not update topic'); }
+  };
+  const upload = async (event: React.FormEvent) => {
+    event.preventDefault(); if (!uploadTopic || !file) return;
+    try { setSaving(true); const body = new FormData(); body.append('file', file); const response = await fetch(`/api/questionset/${id}/topics/${uploadTopic.id}/questions`, { method: 'POST', body }); const data = await response.json(); if (!response.ok) throw new Error(data.message || 'Could not upload questions'); setUploadTopic(null); setFile(null); await refresh(); }
+    catch (reason) { alert(reason instanceof Error ? reason.message : 'Could not upload questions'); }
+    finally { setSaving(false); }
   };
 
-  // Add new batch with file upload
-  const handleAddBatch = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!newBatchName.trim()) return alert('Batch name is required');
-    if (!newBatchNumber || newBatchNumber < 1) return alert('Valid batch number required');
-    if (!batchFile) return alert('Please select a file');
-
-    setUploading(true);
-
-    try {
-      const formData = new FormData();
-     //add number not string because backend needs it
-        formData.append('batchNumber', newBatchNumber.toString());
-      formData.append('name', newBatchName.trim());
-      formData.append('file', batchFile);
-
-      const res = await fetch(`/api/questionset/${id}/batches`, {
-        method: 'POST',
-        body: formData,
-      });
-
-      const result = await res.json();
-
-      if (!res.ok) throw new Error(result.message || 'Failed to add batch');
-
-      alert('Batch added successfully!');
-      setShowAddBatchModal(false);
-      setNewBatchName('');
-      setNewBatchNumber('');
-      setBatchFile(null);
-      fetchQuestionSet();
-    } catch (err: any) {
-      alert(err.message || 'Error adding batch');
-    } finally {
-      setUploading(false);
-    }
-  };
-
-  const handleToggleBatchActive = async (batchId: string, currentActive: boolean) => {
-    if (!confirm(`Are you sure you want to ${currentActive ? 'deactivate' : 'activate'} this batch?`)) return;
-
-    try {
-      const res = await fetch(`/api/questionset/${id}/batches/${batchId}/toggle-active`, {
-        method: 'PATCH',
-      });
-
-      if (!res.ok) throw new Error('Failed to toggle status');
-      
-      fetchQuestionSet();
-    } catch (err: any) {
-      alert(err.message);
-    }
-  };
-
-  const handleDeleteBatch = async (batchId: string) => {
-    if (!confirm('Delete this batch? This cannot be undone.')) return;
-
-    try {
-      const res = await fetch(`/api/questionset/${id}/batches/${batchId}`, {
-        method: 'DELETE',
-      });
-
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || 'Failed to delete');
-
-      alert('Batch deleted');
-      fetchQuestionSet();
-    } catch (err: any) {
-      alert(err.message);
-    }
-  };
-
-  const handleConvertToBatches = async () => {
-    if (!confirm('Convert this question set to use batches? This will move all current questions into Batch 1.')) return;
-
-    try {
-      const res = await fetch(`/api/questionset/${id}/convert-to-batches`, {
-        method: 'POST',
-      });
-
-      if (!res.ok) throw new Error('Conversion failed');
-      
-      fetchQuestionSet();
-    } catch (err: any) {
-      alert(err.message);
-    }
-  };
-
-  if (loading) return <div className="p-8 text-center">Loading question set...</div>;
-  if (error) return <div className="p-8 text-red-600">{error}</div>;
-  if (!questionSet) return <div className="p-8">Question set not found</div>;
-
-  return (
-    <div className="min-h-screen bg-gray-50 p-6 md:p-8">
-      <div className="max-w-7xl mx-auto grid grid-cols-12 gap-6">
-        <Sidebar />
-
-        <div className="col-span-12 md:col-span-9">
-          {/* Header */}
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">{questionSet.title}</h1>
-              <p className="text-gray-600 mt-1">
-                Created by {questionSet.createdBy.email} on {new Date(questionSet.createdAt).toLocaleDateString()}
-              </p>
-            </div>
-
-            <div className="flex flex-wrap gap-3">
-              <button
-                onClick={() => router.back()}
-                className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
-              >
-                Back to List
-              </button>
-              {questionSet.usesBatches && (
-                <button
-                  onClick={() => setShowAddBatchModal(true)}
-                  className="flex items-center gap-2 px-5 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
-                >
-                  <Plus size={18} /> Add Batch
-                </button>
-              )}
-            </div>
-          </div>
-
-          {/* Stats */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-8">
-            <div className="bg-white p-6 rounded-lg shadow-sm border">
-              <div className="flex items-center gap-3">
-                <FileText className="text-indigo-600" size={28} />
-                <div>
-                  <p className="text-sm text-gray-600">Total Questions</p>
-                  <p className="text-2xl font-bold">{questionSet.questionCount}</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white p-6 rounded-lg shadow-sm border">
-              <div className="flex items-center gap-3">
-                <Award className="text-green-600" size={28} />
-                <div>
-                  <p className="text-sm text-gray-600">Total Points</p>
-                  <p className="text-2xl font-bold">{questionSet.totalPoints}</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white p-6 rounded-lg shadow-sm border">
-              <div className="flex items-center gap-3">
-                {questionSet.usesBatches ? (
-                  <div className="text-sm text-gray-700">
-                    <span className="font-medium">Structure:</span> Batched ({questionSet.batches?.length || 0} batches)
-                  </div>
-                ) : (
-                  <>
-                    <AlertTriangle className="text-amber-600" size={28} />
-                    <div>
-                      <p className="text-sm text-amber-700 font-medium">Legacy Mode</p>
-                      <button
-                        onClick={handleConvertToBatches}
-                        className="mt-2 text-xs text-indigo-600 hover:underline"
-                      >
-                        Convert to Batches →
-                      </button>
-                    </div>
-                  </>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Batches List */}
-          {questionSet.usesBatches ? (
-            <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
-              <div className="p-6 border-b">
-                <h2 className="text-xl font-semibold">Batches</h2>
-              </div>
-
-              {questionSet.batches?.length === 0 ? (
-                <div className="p-12 text-center text-gray-500">
-                  No batches yet. Add your first batch above.
-                </div>
-              ) : (
-                <div className="divide-y">
-                  {questionSet.batches?.map((batch) => (
-                    <div key={batch._id} className="p-6 hover:bg-gray-50 transition-colors">
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                        <div>
-                          <div className="flex items-center gap-3">
-                            <h3 className="text-lg font-medium">
-                              Batch {batch.batchNumber}: {batch.name}
-                            </h3>
-                            <span
-                              className={`px-3 py-1 text-xs font-medium rounded-full ${
-                                batch.isActive
-                                  ? 'bg-green-100 text-green-800'
-                                  : 'bg-gray-100 text-gray-700'
-                              }`}
-                            >
-                              {batch.isActive ? 'Active' : 'Inactive'}
-                            </span>
-                          </div>
-                          <p className="text-sm text-gray-600 mt-1">
-                            {batch.questions?.length || 0} questions
-                          </p>
-                        </div>
-
-                        <div className="flex gap-2 flex-wrap">
-                          <button
-                            onClick={() => router.push(`/question-sets/${id}/batches/${batch._id}`)}
-                            className="flex items-center gap-1 px-3 py-1.5 text-sm border rounded hover:bg-gray-100"
-                          >
-                            <Eye size={16} /> View Questions
-                          </button>
-
-                          <button
-                            onClick={() => handleToggleBatchActive(batch._id, batch.isActive)}
-                            className="flex items-center gap-1 px-3 py-1.5 text-sm border rounded hover:bg-gray-100"
-                          >
-                            {batch.isActive ? <ToggleLeft size={16} /> : <ToggleRight size={16} />}
-                            {batch.isActive ? 'Deactivate' : 'Activate'}
-                          </button>
-
-                          <button
-                            onClick={() => handleDeleteBatch(batch._id)}
-                            className="flex items-center gap-1 px-3 py-1.5 text-sm text-red-600 border border-red-200 rounded hover:bg-red-50"
-                          >
-                            <Trash2 size={16} /> Delete
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          ) : (
-            <div className="bg-amber-50 border border-amber-200 rounded-lg p-8 text-center">
-              <AlertTriangle className="mx-auto text-amber-600 mb-4" size={40} />
-              <h3 className="text-lg font-medium mb-2">This question set uses the legacy structure</h3>
-              <p className="text-gray-700 mb-6">
-                It contains {questionSet.questions?.length || 0} questions directly (no batches).
-              </p>
-              <button
-                onClick={handleConvertToBatches}
-                className="px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
-              >
-                Convert to Batch Structure
-              </button>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Add Batch Modal */}
-      {showAddBatchModal && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full">
-            <div className="p-6 border-b">
-              <h2 className="text-xl font-bold">Add New Batch</h2>
-            </div>
-
-            <form onSubmit={handleAddBatch} className="p-6 space-y-5">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Batch Number *
-                </label>
-                <input
-                  type="number"
-                  min="1"
-                  value={newBatchNumber}
-                  onChange={(e) => setNewBatchNumber(e.target.value ? Number(e.target.value) : '')}
-                  className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Batch Name *
-                </label>
-                <input
-                  type="text"
-                  value={newBatchName}
-                  onChange={(e) => setNewBatchName(e.target.value)}
-                  placeholder="e.g. Batch A - Algebra"
-                  className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Questions File (Excel/CSV) *
-                </label>
-                <input
-                  type="file"
-                  accept=".csv,.xlsx,.xls"
-                  onChange={(e) => setBatchFile(e.target.files?.[0] || null)}
-                  className="w-full px-4 py-2 border rounded-lg"
-                  required
-                />
-                <p className="text-xs text-gray-500 mt-1">
-                  Use the same template as question set upload
-                </p>
-              </div>
-
-              <div className="flex gap-3 pt-4">
-                <button
-                  type="button"
-                  onClick={() => setShowAddBatchModal(false)}
-                  className="flex-1 py-2.5 border rounded-lg hover:bg-gray-50"
-                  disabled={uploading}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={uploading}
-                  className="flex-1 py-2.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50"
-                >
-                  {uploading ? 'Adding...' : 'Add Batch'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-    </div>
-  );
+  if (loading) return <main className="min-h-screen bg-[#f5f7f6] p-8"><div className="mx-auto h-72 max-w-6xl animate-pulse rounded-xl bg-slate-200" /></main>;
+  if (!set) return <main className="min-h-screen bg-[#f5f7f6] p-8 text-center text-red-700">{error || 'Subject not found'}</main>;
+  return <main className="min-h-screen bg-[#f5f7f6] px-4 py-5 sm:px-6 lg:px-8"><div className="mx-auto max-w-5xl">
+    <button onClick={() => router.push('/question-set')} className="mb-5 inline-flex items-center gap-1 text-sm font-medium text-[#31443a]"><ArrowLeft className="h-4 w-4" /> Back to subjects</button>
+    <header className="rounded-xl border border-[#e5ebe8] bg-white p-6 shadow-sm"><div className="flex flex-wrap items-start justify-between gap-4"><div><div className="flex items-center gap-3"><BookOpen className="h-7 w-7 text-[#004b37]" /><h1 className="text-2xl font-bold text-[#091d15]">{set.title}</h1></div><p className="mt-2 text-sm text-slate-500">{set.questionCount} questions · {set.totalPoints} points · Curator: {set.createdBy?.email || 'Portal administrator'}</p></div><button onClick={() => setNewTopicOpen(true)} className="inline-flex items-center gap-2 rounded-lg bg-[#004b37] px-4 py-2.5 text-sm font-semibold text-white"><Plus className="h-4 w-4" /> Add topic</button></div></header>
+    <section className="mt-5 rounded-xl border border-[#e5ebe8] bg-white shadow-sm"><div className="border-b border-slate-100 p-5"><h2 className="text-xl font-bold text-[#10231a]">Topics</h2><p className="mt-1 text-sm text-slate-500">Upload questions into a topic, then select topic mixes when creating an exam.</p></div>{topics.length ? <div className="divide-y divide-slate-100">{topics.map((topic) => <article key={topic.id} className="flex flex-col gap-3 p-5 sm:flex-row sm:items-center"><span className="grid h-10 w-10 place-items-center rounded-lg bg-[#edf4ef] text-[#004b37]"><FileQuestion className="h-5 w-5" /></span><div className="min-w-0 flex-1"><h3 className="font-semibold text-[#13241c]">{topic.name}</h3><p className="mt-1 text-sm text-slate-500">{topic._count?.questions ?? 0} questions</p></div><span className={`rounded-full px-2 py-1 text-xs font-semibold ${topic.isActive ? 'bg-[#cef3e1] text-[#176148]' : 'bg-slate-100 text-slate-500'}`}>{topic.isActive ? 'Active' : 'Inactive'}</span><button onClick={() => setUploadTopic(topic)} disabled={!topic.isActive} className="inline-flex items-center gap-1 rounded-lg bg-[#edf0ef] px-3 py-2 text-sm font-medium text-[#263a30] disabled:opacity-50"><Upload className="h-4 w-4" /> Upload</button><button onClick={() => toggleTopic(topic)} className="rounded-lg p-2 text-slate-600 hover:bg-slate-100" aria-label="Toggle topic"><Power className="h-4 w-4" /></button></article>)}</div> : <div className="p-12 text-center text-slate-500">No topics yet. Add a topic to begin organizing this subject.</div>}</section>
+    {newTopicOpen && <div className="fixed inset-0 z-50 grid place-items-center bg-black/55 p-4"><form onSubmit={createTopic} className="w-full max-w-md rounded-xl bg-white p-6 shadow-2xl"><h2 className="text-xl font-bold text-[#13241c]">Add topic</h2><label className="mt-5 block text-sm font-medium text-slate-700">Topic name<input autoFocus value={topicName} onChange={(event) => setTopicName(event.target.value)} placeholder="e.g. Algebra" className="mt-2 w-full rounded-lg border border-slate-200 px-3 py-2.5" required /></label><div className="mt-6 flex gap-2"><button type="button" onClick={() => setNewTopicOpen(false)} className="flex-1 rounded-lg bg-slate-100 py-2.5 font-semibold">Cancel</button><button disabled={saving} className="flex-1 rounded-lg bg-[#004b37] py-2.5 font-semibold text-white">{saving ? 'Saving…' : 'Add topic'}</button></div></form></div>}
+    {uploadTopic && <div className="fixed inset-0 z-50 grid place-items-center bg-black/55 p-4"><form onSubmit={upload} className="w-full max-w-md rounded-xl bg-white p-6 shadow-2xl"><h2 className="text-xl font-bold text-[#13241c]">Upload to {uploadTopic.name}</h2><p className="mt-1 text-sm text-slate-500">Use the normal question CSV or Excel template.</p><input className="mt-5 block w-full text-sm" type="file" accept=".csv,.xlsx,.xls" onChange={(event) => setFile(event.target.files?.[0] || null)} required /><div className="mt-6 flex gap-2"><button type="button" onClick={() => setUploadTopic(null)} className="flex-1 rounded-lg bg-slate-100 py-2.5 font-semibold">Cancel</button><button disabled={saving} className="flex-1 rounded-lg bg-[#004b37] py-2.5 font-semibold text-white">{saving ? 'Uploading…' : 'Upload questions'}</button></div></form></div>}
+  </div></main>;
 }

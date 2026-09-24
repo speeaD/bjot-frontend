@@ -5,7 +5,6 @@ import { useMemo, useState, useEffect } from "react";
 import {
   Search,
   UserPlus,
-  Upload,
   Mail,
   Trash2,
   Send,
@@ -15,15 +14,16 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
-  Check,
-  Calendar,
   Users,
   Award,
-  Menu,
-  Loader2,
+  Download,
+  PlusCircle,
+  Copy,
+  BadgeCheck,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import Sidebar from "../componets/Sidebar";
+import DashboardHeader from "../componets/dashboard/DashboardHeader";
+import DashboardTableLoading from "../componets/dashboard/DashboardTableLoading";
 
 interface QuestionSet {
   _id: string;
@@ -34,7 +34,7 @@ interface QuizTaker {
   _id: string;
   email: string;
   name?: string;
-  accountType: 'premium' | 'regular';
+  accountType: "premium" | "regular";
   accessCode?: string;
   isActive: boolean;
   questionSetCombination?: QuestionSet[];
@@ -47,7 +47,7 @@ interface Quiz {
   _id: string;
   settings: {
     title: string;
-    examType?: 'multi-subject' | 'single-subject';
+    examType?: "multi-subject" | "single-subject";
   };
   questionSetCombination: string[];
 }
@@ -73,7 +73,6 @@ export default function QuizTakersClient() {
   const [showImportModal, setShowImportModal] = useState(false);
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [showUnassignModal, setShowUnassignModal] = useState(false);
-  const [showMobileSidebar, setShowMobileSidebar] = useState(false);
 
   // Data States — start empty, populated on mount
   const [isPageLoading, setIsPageLoading] = useState(true);
@@ -83,11 +82,17 @@ export default function QuizTakersClient() {
   const [questionSets, setQuestionSets] = useState<QuestionSet[]>([]);
 
   // Filter States
-  const [accountTypeFilter, setAccountTypeFilter] = useState<'all' | 'premium' | 'regular'>('all');
+  const [accountTypeFilter, setAccountTypeFilter] = useState<
+    "all" | "premium" | "regular"
+  >("all");
   const [subjectFilter, setSubjectFilter] = useState<string[]>([]);
-  const [assignedQuizFilter, setAssignedQuizFilter] = useState<string>('all');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
-  const [dateFilter, setDateFilter] = useState<'all' | 'today' | 'week' | 'month'>('all');
+  const [assignedQuizFilter, setAssignedQuizFilter] = useState<string>("all");
+  const [statusFilter, setStatusFilter] = useState<
+    "all" | "active" | "inactive"
+  >("all");
+  const [dateFilter, setDateFilter] = useState<
+    "all" | "today" | "week" | "month"
+  >("all");
 
   // Pagination States
   const [currentPage, setCurrentPage] = useState(1);
@@ -96,7 +101,9 @@ export default function QuizTakersClient() {
   // Form states
   const [newEmail, setNewEmail] = useState("");
   const [newName, setNewName] = useState("");
-  const [selectedQuestionSets, setSelectedQuestionSets] = useState<string[]>([]);
+  const [selectedQuestionSets, setSelectedQuestionSets] = useState<string[]>(
+    [],
+  );
   const [selectedQuizId, setSelectedQuizId] = useState("");
   const [selectedUnassignQuizId, setSelectedUnassignQuizId] = useState("");
   const [importFile, setImportFile] = useState<File | null>(null);
@@ -117,9 +124,9 @@ export default function QuizTakersClient() {
       try {
         setIsPageLoading(true);
         const [takersRes, quizzesRes, setsRes] = await Promise.all([
-          fetch('/api/quiz-takers'),
-          fetch('/api/quiz'),
-          fetch('/api/questionset'),
+          fetch("/api/quiz-takers"),
+          fetch("/api/quiz"),
+          fetch("/api/questionset"),
         ]);
 
         const [takersData, quizzesData, setsData] = await Promise.all([
@@ -128,11 +135,16 @@ export default function QuizTakersClient() {
           setsRes.json(),
         ]);
 
+        if (!takersRes.ok) throw new Error(takersData.message || 'Failed to load quiz takers');
+        if (!quizzesRes.ok) throw new Error(quizzesData.message || 'Failed to load quizzes');
+        if (!setsRes.ok) throw new Error(setsData.message || 'Failed to load question sets');
+
         setQuizTakers(takersData.quizTakers || []);
         setQuizzes(quizzesData.quizzes || []);
         setQuestionSets(setsData.questionSets || []);
       } catch (err) {
-        console.error('Failed to load page data:', err);
+        console.error("Failed to load page data:", err);
+        setError(err instanceof Error ? err.message : 'Failed to load quiz takers');
       } finally {
         setIsPageLoading(false);
       }
@@ -144,13 +156,18 @@ export default function QuizTakersClient() {
   // ─── Memos ────────────────────────────────────────────────────────────────
 
   const uniqueCombinations = useMemo(() => {
-    const combinations = new Map<string, { ids: string[], titles: string[] }>();
+    const combinations = new Map<string, { ids: string[]; titles: string[] }>();
 
-    quizTakers.forEach(taker => {
-      if (taker.questionSetCombination && taker.questionSetCombination.length > 0) {
-        const ids = taker.questionSetCombination.map(qs => qs._id).sort();
-        const titles = taker.questionSetCombination.map(qs => qs.title).sort();
-        const key = ids.join(',');
+    quizTakers.forEach((taker) => {
+      if (
+        taker.questionSetCombination &&
+        taker.questionSetCombination.length > 0
+      ) {
+        const ids = taker.questionSetCombination.map((qs) => qs._id).sort();
+        const titles = taker.questionSetCombination
+          .map((qs) => qs.title)
+          .sort();
+        const key = ids.join(",");
 
         if (!combinations.has(key)) {
           combinations.set(key, { ids, titles });
@@ -162,18 +179,19 @@ export default function QuizTakersClient() {
       key,
       ids: value.ids,
       titles: value.titles,
-      label: value.titles.join(' + ')
+      label: value.titles.join(" + "),
     }));
   }, [quizTakers]);
 
   const assignedQuizzesForFilter = useMemo(() => {
     const quizMap = new Map<string, string>();
 
-    quizTakers.forEach(taker => {
+    quizTakers.forEach((taker) => {
       if (taker.assignedQuizzes && taker.assignedQuizzes.length > 0) {
         taker.assignedQuizzes.forEach((quiz: any) => {
           if (!quizMap.has(quiz._id)) {
-            const title = quiz.settings?.title || `Untitled Quiz (${quiz._id.slice(0, 8)})`;
+            const title =
+              quiz.settings?.title || `Untitled Quiz (${quiz._id.slice(0, 8)})`;
             quizMap.set(quiz._id, title);
           }
         });
@@ -184,7 +202,7 @@ export default function QuizTakersClient() {
   }, [quizTakers]);
 
   const filteredQuizTakers = useMemo(() => {
-    return quizTakers.filter(taker => {
+    return quizTakers.filter((taker) => {
       const searchLower = searchTerm.toLowerCase();
       const matchesSearch =
         taker.email.toLowerCase().includes(searchLower) ||
@@ -193,48 +211,76 @@ export default function QuizTakersClient() {
 
       if (!matchesSearch) return false;
 
-      if (accountTypeFilter !== 'all' && taker.accountType !== accountTypeFilter) return false;
+      if (
+        accountTypeFilter !== "all" &&
+        taker.accountType !== accountTypeFilter
+      )
+        return false;
 
-      if (statusFilter !== 'all') {
-        if (statusFilter === 'active' && !taker.isActive) return false;
-        if (statusFilter === 'inactive' && taker.isActive) return false;
+      if (statusFilter !== "all") {
+        if (statusFilter === "active" && !taker.isActive) return false;
+        if (statusFilter === "inactive" && taker.isActive) return false;
       }
 
       if (subjectFilter.length > 0) {
-        const takerCombination = taker.questionSetCombination
-          ?.map(qs => qs._id)
-          .sort()
-          .join(',') || '';
+        const takerCombination =
+          taker.questionSetCombination
+            ?.map((qs) => qs._id)
+            .sort()
+            .join(",") || "";
         if (!subjectFilter.includes(takerCombination)) return false;
       }
 
-      if (assignedQuizFilter !== 'all') {
-        if (assignedQuizFilter === 'none') {
-          if (taker.assignedQuizzes && taker.assignedQuizzes.length > 0) return false;
+      if (assignedQuizFilter !== "all") {
+        if (assignedQuizFilter === "none") {
+          if (taker.assignedQuizzes && taker.assignedQuizzes.length > 0)
+            return false;
         } else {
-          const hasQuiz = taker.assignedQuizzes?.some((quiz: any) => quiz._id === assignedQuizFilter);
+          const hasQuiz = taker.assignedQuizzes?.some(
+            (quiz: any) => quiz._id === assignedQuizFilter,
+          );
           if (!hasQuiz) return false;
         }
       }
 
-      if (dateFilter !== 'all') {
+      if (dateFilter !== "all") {
         const createdDate = new Date(taker.createdAt);
-        const diffDays = (Date.now() - createdDate.getTime()) / (1000 * 60 * 60 * 24);
-        if (dateFilter === 'today' && diffDays > 1) return false;
-        if (dateFilter === 'week' && diffDays > 7) return false;
-        if (dateFilter === 'month' && diffDays > 30) return false;
+        const diffDays =
+          (Date.now() - createdDate.getTime()) / (1000 * 60 * 60 * 24);
+        if (dateFilter === "today" && diffDays > 1) return false;
+        if (dateFilter === "week" && diffDays > 7) return false;
+        if (dateFilter === "month" && diffDays > 30) return false;
       }
 
       return true;
     });
-  }, [quizTakers, searchTerm, accountTypeFilter, statusFilter, subjectFilter, assignedQuizFilter, dateFilter]);
+  }, [
+    quizTakers,
+    searchTerm,
+    accountTypeFilter,
+    statusFilter,
+    subjectFilter,
+    assignedQuizFilter,
+    dateFilter,
+  ]);
 
   // Reset to page 1 whenever filters/search change
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, accountTypeFilter, statusFilter, subjectFilter, assignedQuizFilter, dateFilter, pageSize]);
+  }, [
+    searchTerm,
+    accountTypeFilter,
+    statusFilter,
+    subjectFilter,
+    assignedQuizFilter,
+    dateFilter,
+    pageSize,
+  ]);
 
-  const totalPages = Math.max(1, Math.ceil(filteredQuizTakers.length / pageSize));
+  const totalPages = Math.max(
+    1,
+    Math.ceil(filteredQuizTakers.length / pageSize),
+  );
 
   const paginatedQuizTakers = useMemo(() => {
     const start = (currentPage - 1) * pageSize;
@@ -244,37 +290,49 @@ export default function QuizTakersClient() {
   const compatibleQuizzes = useMemo(() => {
     if (selectedTakers.length === 0) return quizzes;
 
-    const selectedTakerObjects = quizTakers.filter(t => selectedTakers.includes(t._id));
+    const selectedTakerObjects = quizTakers.filter((t) =>
+      selectedTakers.includes(t._id),
+    );
 
-    return quizzes.filter(quiz => {
-      const examType = quiz.settings.examType || 'multi-subject';
+    return quizzes.filter((quiz) => {
+      const examType = quiz.settings.examType || "multi-subject";
 
-      if (examType === 'single-subject') {
+      if (examType === "single-subject") {
         const requiredSubjectId = quiz.questionSetCombination[0];
         if (!requiredSubjectId) return false;
 
-        return selectedTakerObjects.every(taker => {
-          const takerSubjectIds = taker.questionSetCombination?.map(qs => qs._id) || [];
+        return selectedTakerObjects.every((taker) => {
+          const takerSubjectIds =
+            taker.questionSetCombination?.map((qs) => qs._id) || [];
           return takerSubjectIds.includes(requiredSubjectId);
         });
       } else {
         const firstCombination = selectedTakerObjects[0]?.questionSetCombination
-          ? [...selectedTakerObjects[0].questionSetCombination.map(qs => qs._id)].sort()
+          ? [
+              ...selectedTakerObjects[0].questionSetCombination.map(
+                (qs) => qs._id,
+              ),
+            ].sort()
           : undefined;
 
         if (!firstCombination) return false;
 
-        const allSameCombination = selectedTakerObjects.every(taker => {
+        const allSameCombination = selectedTakerObjects.every((taker) => {
           const takerCombination = taker.questionSetCombination
-            ? [...taker.questionSetCombination.map(qs => qs._id)].sort()
+            ? [...taker.questionSetCombination.map((qs) => qs._id)].sort()
             : undefined;
-          return JSON.stringify(takerCombination) === JSON.stringify(firstCombination);
+          return (
+            JSON.stringify(takerCombination) ===
+            JSON.stringify(firstCombination)
+          );
         });
 
         if (!allSameCombination) return false;
 
         const quizCombination = [...(quiz.questionSetCombination || [])].sort();
-        return JSON.stringify(quizCombination) === JSON.stringify(firstCombination);
+        return (
+          JSON.stringify(quizCombination) === JSON.stringify(firstCombination)
+        );
       }
     });
   }, [selectedTakers, quizTakers, quizzes]);
@@ -283,14 +341,21 @@ export default function QuizTakersClient() {
     if (selectedTakers.length === 0) return [];
 
     const quizCountMap = new Map<string, { title: string; count: number }>();
-    const selectedTakerObjects = quizTakers.filter(t => selectedTakers.includes(t._id));
+    const selectedTakerObjects = quizTakers.filter((t) =>
+      selectedTakers.includes(t._id),
+    );
 
-    selectedTakerObjects.forEach(taker => {
+    selectedTakerObjects.forEach((taker) => {
       taker.assignedQuizzes?.forEach((quiz: any) => {
-        const title = quiz.quizId?.settings?.title || `Untitled Quiz (${quiz._id.slice(0, 8)})`;
+        const title =
+          quiz.quizId?.settings?.title ||
+          `Untitled Quiz (${quiz._id.slice(0, 8)})`;
         const current = quizCountMap.get(quiz.quizId?._id);
         if (current) {
-          quizCountMap.set(quiz.quizId?._id, { title, count: current.count + 1 });
+          quizCountMap.set(quiz.quizId?._id, {
+            title,
+            count: current.count + 1,
+          });
         } else {
           quizCountMap.set(quiz.quizId?._id, { title, count: 1 });
         }
@@ -300,76 +365,123 @@ export default function QuizTakersClient() {
     return Array.from(quizCountMap.entries()).map(([id, data]) => ({
       id,
       title: data.title,
-      count: data.count
+      count: data.count,
     }));
   }, [selectedTakers, quizTakers]);
 
   const activeFilterCount = useMemo(() => {
     let count = 0;
-    if (accountTypeFilter !== 'all') count++;
-    if (statusFilter !== 'all') count++;
+    if (accountTypeFilter !== "all") count++;
+    if (statusFilter !== "all") count++;
     if (subjectFilter.length > 0) count++;
-    if (assignedQuizFilter !== 'all') count++;
-    if (dateFilter !== 'all') count++;
+    if (assignedQuizFilter !== "all") count++;
+    if (dateFilter !== "all") count++;
     return count;
-  }, [accountTypeFilter, statusFilter, subjectFilter, assignedQuizFilter, dateFilter]);
+  }, [
+    accountTypeFilter,
+    statusFilter,
+    subjectFilter,
+    assignedQuizFilter,
+    dateFilter,
+  ]);
 
   // ─── Helpers ──────────────────────────────────────────────────────────────
 
   const clearAllFilters = () => {
-    setAccountTypeFilter('all');
-    setStatusFilter('all');
+    setAccountTypeFilter("all");
+    setStatusFilter("all");
     setSubjectFilter([]);
-    setAssignedQuizFilter('all');
-    setDateFilter('all');
+    setAssignedQuizFilter("all");
+    setDateFilter("all");
+  };
+
+  const handleExportCsv = () => {
+    const escapeCsv = (value: string | number | boolean | undefined) =>
+      `"${String(value ?? "").replaceAll('"', '""')}"`;
+    const rows = filteredQuizTakers.map((taker) =>
+      [
+        taker.name || "",
+        taker.email,
+        taker.accountType,
+        taker.isActive ? "Active" : "Inactive",
+        taker.accessCode || "",
+        taker.questionSetCombination
+          ?.map((subject) => subject.title)
+          .join(", ") || "",
+        taker.assignedQuizzes?.length || 0,
+      ]
+        .map(escapeCsv)
+        .join(","),
+    );
+    const csv = [
+      [
+        "Name",
+        "Email",
+        "Account Type",
+        "Status",
+        "Access Code",
+        "Subject Combination",
+        "Assigned Exams",
+      ].join(","),
+      ...rows,
+    ].join("\n");
+    const url = URL.createObjectURL(
+      new Blob([csv], { type: "text/csv;charset=utf-8;" }),
+    );
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "bjot-candidate-directory.csv";
+    link.click();
+    URL.revokeObjectURL(url);
   };
 
   const refreshQuizTakers = async () => {
-    const res = await fetch('/api/quiz-takers');
+    const res = await fetch("/api/quiz-takers");
     const data = await res.json();
+    if (!res.ok) throw new Error(data.message || 'Failed to refresh quiz takers');
     setQuizTakers(data.quizTakers || []);
   };
 
   // ─── Handlers ─────────────────────────────────────────────────────────────
 
   const handleQuestionSetToggle = (id: string) => {
-    setSelectedQuestionSets(prev => {
-      if (prev.includes(id)) return prev.filter(item => item !== id);
+    setSelectedQuestionSets((prev) => {
+      if (prev.includes(id)) return prev.filter((item) => item !== id);
       if (prev.length < 4) return [...prev, id];
       return prev;
     });
   };
 
   const handleSelectAll = () => {
-    const pageIds = paginatedQuizTakers.map(t => t._id);
-    const allSelected = pageIds.every(id => selectedTakers.includes(id));
+    const pageIds = paginatedQuizTakers.map((t) => t._id);
+    const allSelected = pageIds.every((id) => selectedTakers.includes(id));
     if (allSelected) {
-      setSelectedTakers(prev => prev.filter(id => !pageIds.includes(id)));
+      setSelectedTakers((prev) => prev.filter((id) => !pageIds.includes(id)));
     } else {
-      setSelectedTakers(prev => [...new Set([...prev, ...pageIds])]);
+      setSelectedTakers((prev) => [...new Set([...prev, ...pageIds])]);
     }
   };
 
   const handleSelectTaker = (id: string) => {
-    setSelectedTakers(prev =>
-      prev.includes(id) ? prev.filter(t => t !== id) : [...prev, id]
+    setSelectedTakers((prev) =>
+      prev.includes(id) ? prev.filter((t) => t !== id) : [...prev, id],
     );
   };
 
   const toggleSubjectFilter = (key: string) => {
-    setSubjectFilter(prev =>
-      prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]
+    setSubjectFilter((prev) =>
+      prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key],
     );
   };
 
   const handleAddQuizTaker = async () => {
     if (!newEmail.trim()) {
-      alert('Please enter an email address');
+      alert("Please enter an email address");
       return;
     }
 
     if (selectedQuestionSets.length !== 4) {
-      alert('Please select exactly 4 question sets');
+      alert("Please select exactly 4 question sets");
       return;
     }
 
@@ -377,32 +489,34 @@ export default function QuizTakersClient() {
       setIsSubmitting(true);
       setError(null);
 
-      const response = await fetch('/api/quiz-takers/create', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const response = await fetch("/api/quiz-takers/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           email: newEmail,
           name: newName || undefined,
-          questionSetCombination: selectedQuestionSets
+          questionSetCombination: selectedQuestionSets,
         }),
       });
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to create student');
+        throw new Error(errorData.message || "Failed to create student");
       }
 
       const data = await response.json();
-      setQuizTakers(prev => [data.quizTaker, ...prev]);
-      setNewEmail('');
-      setNewName('');
+      await refreshQuizTakers();
+      setNewEmail("");
+      setNewName("");
       setSelectedQuestionSets([]);
       setShowAddModal(false);
-      alert(`Premium quiz taker created successfully! Access Code: ${data.quizTaker.accessCode}`);
+      alert(
+        `Premium quiz taker created successfully! Access Code: ${data.quizTaker.accessCode}`,
+      );
       router.refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create student');
-      alert(err instanceof Error ? err.message : 'Failed to create student');
+      setError(err instanceof Error ? err.message : "Failed to create student");
+      alert(err instanceof Error ? err.message : "Failed to create student");
     } finally {
       setIsSubmitting(false);
     }
@@ -412,20 +526,20 @@ export default function QuizTakersClient() {
     if (!confirm(`Are you sure you want to delete ${email}?`)) return;
 
     try {
-      const response = await fetch('/api/quiz-takers/delete', {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
+      const response = await fetch("/api/quiz-takers/delete", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id }),
       });
 
-      if (!response.ok) throw new Error('Failed to delete student');
+      if (!response.ok) throw new Error("Failed to delete student");
 
-      setQuizTakers(prev => prev.filter(t => t._id !== id));
-      setSelectedTakers(prev => prev.filter(t => t !== id));
-      alert('Student deleted successfully');
+      setQuizTakers((prev) => prev.filter((t) => t._id !== id));
+      setSelectedTakers((prev) => prev.filter((t) => t !== id));
+      alert("Student deleted successfully");
       router.refresh();
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Failed to delete student');
+      alert(err instanceof Error ? err.message : "Failed to delete student");
     }
   };
 
@@ -433,20 +547,22 @@ export default function QuizTakersClient() {
     if (!confirm(`Delete ${selectedTakers.length} quiz taker(s)?`)) return;
 
     try {
-      const response = await fetch('/api/quiz-takers/delete-multiple', {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
+      const response = await fetch("/api/quiz-takers/delete-multiple", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ids: selectedTakers }),
       });
 
-      if (!response.ok) throw new Error('Failed to delete students');
+      if (!response.ok) throw new Error("Failed to delete students");
 
-      setQuizTakers(prev => prev.filter(t => !selectedTakers.includes(t._id)));
+      setQuizTakers((prev) =>
+        prev.filter((t) => !selectedTakers.includes(t._id)),
+      );
       setSelectedTakers([]);
-      alert('Students deleted successfully');
+      alert("Students deleted successfully");
       router.refresh();
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Failed to delete students');
+      alert(err instanceof Error ? err.message : "Failed to delete students");
     }
   };
 
@@ -454,16 +570,16 @@ export default function QuizTakersClient() {
     if (!importFile) return;
 
     const formData = new FormData();
-    formData.append('file', importFile);
+    formData.append("file", importFile);
 
     try {
       setIsSubmitting(true);
-      const response = await fetch('/api/quiz-takers/bulk-upload', {
-        method: 'POST',
+      const response = await fetch("/api/quiz-takers/bulk-upload", {
+        method: "POST",
         body: formData,
       });
 
-      if (!response.ok) throw new Error('Failed to upload file');
+      if (!response.ok) throw new Error("Failed to upload file");
 
       const data = await response.json();
       setUploadResults(data.results);
@@ -473,7 +589,7 @@ export default function QuizTakersClient() {
       await refreshQuizTakers();
       router.refresh();
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Failed to upload file');
+      alert(err instanceof Error ? err.message : "Failed to upload file");
     } finally {
       setIsSubmitting(false);
     }
@@ -484,21 +600,24 @@ export default function QuizTakersClient() {
 
     try {
       setIsSubmitting(true);
-      const response = await fetch('/api/quiz-takers/assign', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ quizTakerIds: selectedTakers, quizId: selectedQuizId }),
+      const response = await fetch("/api/quiz-takers/assign", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          quizTakerIds: selectedTakers,
+          quizId: selectedQuizId,
+        }),
       });
 
-      if (!response.ok) throw new Error('Failed to assign exam');
+      if (!response.ok) throw new Error("Failed to assign exam");
 
-      alert('Exam assigned successfully');
+      alert("Exam assigned successfully");
       setShowAssignModal(false);
-      setSelectedQuizId('');
+      setSelectedQuizId("");
       await refreshQuizTakers();
       router.refresh();
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Failed to assign exam');
+      alert(err instanceof Error ? err.message : "Failed to assign exam");
     } finally {
       setIsSubmitting(false);
     }
@@ -509,21 +628,24 @@ export default function QuizTakersClient() {
 
     try {
       setIsSubmitting(true);
-      const response = await fetch('/api/quiz-takers/unassign', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ quizTakerIds: selectedTakers, quizId: selectedUnassignQuizId }),
+      const response = await fetch("/api/quiz-takers/unassign", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          quizTakerIds: selectedTakers,
+          quizId: selectedUnassignQuizId,
+        }),
       });
 
-      if (!response.ok) throw new Error('Failed to unassign exam');
+      if (!response.ok) throw new Error("Failed to unassign exam");
 
-      alert('Exam unassigned successfully');
+      alert("Exam unassigned successfully");
       setShowUnassignModal(false);
-      setSelectedUnassignQuizId('');
+      setSelectedUnassignQuizId("");
       await refreshQuizTakers();
       router.refresh();
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Failed to unassign exam');
+      alert(err instanceof Error ? err.message : "Failed to unassign exam");
     } finally {
       setIsSubmitting(false);
     }
@@ -534,18 +656,18 @@ export default function QuizTakersClient() {
 
     try {
       setIsSubmitting(true);
-      const response = await fetch('/api/quiz-takers/send-invites', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const response = await fetch("/api/quiz-takers/send-invites", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ quizTakerIds: selectedTakers }),
       });
 
-      if (!response.ok) throw new Error('Failed to send invites');
+      if (!response.ok) throw new Error("Failed to send invites");
 
       alert(`Invites sent to ${selectedTakers.length} quiz taker(s)`);
       setSelectedTakers([]);
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Failed to send invites');
+      alert(err instanceof Error ? err.message : "Failed to send invites");
     } finally {
       setIsSubmitting(false);
     }
@@ -554,185 +676,235 @@ export default function QuizTakersClient() {
   const handleToggleActive = async (id: string, currentActive: boolean) => {
     try {
       const response = await fetch(`/api/quiz-takers/${id}/update`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ isActive: !currentActive }),
       });
 
-      if (!response.ok) throw new Error('Failed to update status');
+      if (!response.ok) throw new Error("Failed to update status");
 
-      setQuizTakers(prev => prev.map(t =>
-        t._id === id ? { ...t, isActive: !currentActive } : t
-      ));
+      setQuizTakers((prev) =>
+        prev.map((t) =>
+          t._id === id ? { ...t, isActive: !currentActive } : t,
+        ),
+      );
       router.refresh();
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Failed to update status');
+      alert(err instanceof Error ? err.message : "Failed to update status");
     }
   };
 
-  // ─── Page loading skeleton ─────────────────────────────────────────────────
-  if (isPageLoading) {
-    return (
-      <div className="min-h-screen bg-gray-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 md:py-8">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 md:gap-6">
-            <div className="hidden lg:block lg:col-span-3">
-              <Sidebar />
-            </div>
-            <div className="lg:col-span-9 space-y-4">
-              {/* Header skeleton */}
-              <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 animate-pulse">
-                <div className="h-8 bg-gray-200 rounded w-1/4 mb-4" />
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-6">
-                  {[1, 2, 3, 4].map(i => (
-                    <div key={i} className="h-20 bg-gray-200 rounded-lg" />
-                  ))}
-                </div>
-              </div>
-              {/* Table skeleton */}
-              <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 animate-pulse">
-                <div className="space-y-3">
-                  {[1, 2, 3, 4, 5, 6, 7, 8].map(i => (
-                    <div key={i} className="h-12 bg-gray-200 rounded" />
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  const totalStudents = quizTakers.length;
+  const premiumStudents = quizTakers.filter(
+    (t) => t.accountType === "premium",
+  ).length;
+  const activeStudents = quizTakers.filter((t) => t.isActive).length;
+  const joinedThisWeek = quizTakers.filter(
+    (t) =>
+      Date.now() - new Date(t.createdAt).getTime() < 7 * 24 * 60 * 60 * 1000,
+  ).length;
+  const displayCount = (count: number) => isPageLoading ? "—" : count.toLocaleString();
 
-  // ─── Main render (unchanged from your original) ────────────────────────────
+  // ─── Main render ───────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 md:py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 md:gap-6">
-          {/* Mobile Sidebar Toggle */}
-          <button
-            className="lg:hidden fixed top-4 left-4 p-2 bg-white rounded-lg shadow-md"
-            onClick={() => setShowMobileSidebar(true)}
-          >
-            <Menu className="w-6 h-6 text-gray-600" />
-          </button>
-
-          {/* Sidebar - Desktop */}
-          <div className="hidden lg:block lg:col-span-3">
-            <Sidebar />
-          </div>
-
-          {/* Mobile Sidebar */}
-          {showMobileSidebar && (
-            <div className="lg:hidden fixed inset-0 z-50 flex">
-              <div className="bg-white w-80 h-full overflow-y-auto">
-                <div className="p-4 flex justify-end">
-                  <button onClick={() => setShowMobileSidebar(false)}>
-                    <X className="w-6 h-6 text-gray-600" />
-                  </button>
-                </div>
-                <Sidebar />
-              </div>
-              <div
-                className="flex-1 bg-black/50"
-                onClick={() => setShowMobileSidebar(false)}
-              />
+    <div className="min-h-screen bg-[#f4f7f8] text-[#202b2a]">
+      <main>
+        {error && !showAddModal && (
+          <div className="mx-auto mt-4 max-w-[1760px] px-4 sm:px-5 xl:px-5">
+            <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+              {error}
             </div>
-          )}
+          </div>
+        )}
+        <DashboardHeader
+          adminName="Blast Jamb Online"
+          adminRole="Administrator"
+          searchValue={searchTerm}
+          onSearchChange={setSearchTerm}
+          searchPlaceholder="Search student name, email, access code, or exam cohort..."
+        />
 
-          {/* Main Content */}
-          <div className="lg:col-span-9">
-            {/* Header */}
-            <div className="bg-white rounded-xl md:rounded-2xl shadow-sm border border-gray-100 p-4 md:p-6 mb-4 md:mb-6">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div className="mx-auto max-w-[1760px] px-4 py-4 sm:px-5 xl:px-5">
+          <div>
+            <section className="relative mb-5 overflow-hidden rounded-2xl bg-[#003c2f] px-5 py-5 text-white shadow-sm sm:px-6">
+              
+              <div className="relative flex flex-col gap-8 lg:flex-row lg:items-center lg:justify-between">
                 <div>
-                  <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Students</h1>
-                  <p className="text-sm text-gray-500 mt-1">Manage your students and assignments</p>
-                </div>
 
-                <div className="flex flex-wrap gap-2">
+                  <h1 className="text-3xl font-bold tracking-tight sm:text-[34px]">
+                    Manage Students
+                  </h1>
+                  <p className="mt-1 max-w-[670px] text-sm leading-5 text-[#a4c8bd]">
+                    Manage student enrollments, monitor access code status,
+                    assign CBT mock exams, and review subject combinations.
+                  </p>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    onClick={handleExportCsv}
+                    disabled={isPageLoading}
+                    className="inline-flex items-center gap-2 rounded-lg bg-white/10 px-3 py-2 text-xs font-semibold hover:bg-white/15 disabled:opacity-50"
+                  >
+                    <Download className="h-4 w-4 text-[#f7aa34]" />
+                    Bulk Upload CSV
+                  </button>
+                  
                   <button
                     onClick={() => setShowAddModal(true)}
-                    className="flex-1 sm:flex-none px-4 py-2 bg-green-bg text-white rounded-lg text-sm font-medium hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
+                    disabled={isPageLoading}
+                    className="inline-flex items-center gap-2 rounded-lg bg-[#ff951f] px-4 py-2 text-xs font-bold text-white shadow-[0_4px_14px_rgba(255,149,31,.28)] hover:bg-[#ed8510] disabled:opacity-50"
                   >
-                    <UserPlus className="w-4 h-4" />
-                    <span className="hidden sm:inline">Add Premium Student</span>
-                    <span className="sm:hidden">Add Student</span>
+                    <PlusCircle className="h-4 w-4" />
+                    Add Premium Student
+                  </button>
+                </div>
+              </div>
+            </section>
+
+            <section className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              <div className="rounded-xl border border-[#e8eeee] bg-white p-4 shadow-sm">
+                <div className="flex justify-between text-[10px] font-bold tracking-[.12em] text-[#5c6664]">
+                  <span>TOTAL ENROLLED</span>
+                  <span className="rounded bg-[#f4f8f6] p-1 text-[#124c3b]">
+                    <Users className="h-4 w-4" />
+                  </span>
+                </div>
+                <div className="mt-2 flex items-baseline gap-2">
+                  <strong className="text-2xl text-[#0d3c31]">
+                    {displayCount(totalStudents)}
+                  </strong>
+                  <span className="text-xs text-slate-500">registered students</span>
+                </div>
+                {/* <p className="mt-1 text-xs font-semibold text-[#22624e]">
+                  ↑ +48 this mo (+24% cohort growth)
+                </p> */}
+              </div>
+              <div className="rounded-xl border border-[#e8eeee] bg-white p-4 shadow-sm">
+                <div className="flex justify-between text-[10px] font-bold tracking-[.12em] text-[#5c6664]">
+                  <span>PREMIUM PLAN</span>
+                  <span className="rounded bg-[#fff7ec] p-1 text-[#b46710]">
+                    <Award className="h-4 w-4" />
+                  </span>
+                </div>
+                <div className="mt-2 flex items-baseline gap-2">
+                  <strong className="text-2xl text-[#27302f]">
+                    {displayCount(premiumStudents)}
+                  </strong>
+                  <span className="text-xs text-slate-500">active subs</span>
+                </div>
+                {/* <p className="mt-1 text-xs text-slate-500">
+                  <span className="text-[#ff951f]">●</span> Full Access • CBT
+                  Mock + Remedial Banks
+                </p> */}
+              </div>
+              <div className="rounded-xl border border-[#e8eeee] bg-white p-4 shadow-sm">
+                <div className="flex justify-between text-[10px] font-bold tracking-[.12em] text-[#5c6664]">
+                  <span>ACTIVE STATUS</span>
+                  <span className="rounded bg-[#fff7ec] p-1 text-[#ff951f]">
+                    <BadgeCheck className="h-4 w-4" />
+                  </span>
+                </div>
+                <div className="mt-2 flex items-baseline gap-2">
+                  <strong className="text-2xl text-[#0d3c31]">
+                    {displayCount(activeStudents)}
+                  </strong>
+                  <span className="text-xs text-slate-500">
+                    enabled (
+                    {isPageLoading ? "—" : totalStudents
+                      ? Math.round((activeStudents / totalStudents) * 100)
+                      : 0}
+                    %)
+                  </span>
+                </div>
+                <div className="mt-1 flex justify-between text-xs">
+                  <span className="font-semibold text-[#b46710]">
+                    ● Live Now
+                  </span>
+                  <span className="text-[10px] text-slate-500">
+                    {displayCount(totalStudents - activeStudents)} DEACTIVATED
+                  </span>
+                </div>
+              </div>
+              <div className="rounded-xl border border-[#e8eeee] bg-white p-4 shadow-sm">
+                <div className="flex justify-between text-[10px] font-bold tracking-[.12em] text-[#5c6664]">
+                  <span>JOINED THIS WEEK</span>
+                  <span className="rounded bg-[#f4f8f6] p-1 text-[#124c3b]">
+                    <UserPlus className="h-4 w-4" />
+                  </span>
+                </div>
+                <div className="mt-2 flex items-baseline gap-2">
+                  <strong className="text-2xl text-[#0d3c31]">
+                    {displayCount(joinedThisWeek)}
+                  </strong>
+                  <span className="text-xs text-slate-500">registrants</span>
+                </div>
+                <p className="mt-1 text-xs font-semibold text-[#355d51]">
+                  ▣ Awaiting verification
+                </p>
+              </div>
+            </section>
+
+            {/* Directory filters */}
+            <div className="mb-4 overflow-hidden rounded-xl border border-[#e6eceb] bg-white shadow-sm">
+              <div className="flex flex-col gap-3 border-b border-[#edf1f0] px-3 py-2.5 lg:flex-row lg:items-center lg:justify-between">
+                <div className="flex items-center gap-1 overflow-x-auto text-xs font-semibold whitespace-nowrap">
+                  <button
+                    onClick={clearAllFilters}
+                    className={`rounded-md px-3 py-2 ${activeFilterCount === 0 ? "bg-[#0a4c3b] text-white" : "text-slate-600 hover:bg-slate-100"}`}
+                  >
+                    All Students ({displayCount(totalStudents)})
                   </button>
                   <button
-                    onClick={() => setShowImportModal(true)}
-                    className="flex-1 sm:flex-none px-4 py-2 bg-blue-bg text-white rounded-lg text-sm font-medium hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
+                    onClick={() => setStatusFilter("active")}
+                    className={`rounded-md px-3 py-2 ${statusFilter === "active" ? "bg-[#e8f4ef] text-[#0c4e3d]" : "text-slate-600 hover:bg-slate-100"}`}
                   >
-                    <Upload className="w-4 h-4" />
-                    Import
+                    <span className="mr-1 text-[#ffbb70]">●</span>Active (
+                    {displayCount(activeStudents)})
+                  </button>
+                  <button
+                    onClick={() => setStatusFilter("inactive")}
+                    className={`rounded-md px-3 py-2 ${statusFilter === "inactive" ? "bg-[#f9ecec] text-[#a73737]" : "text-slate-600 hover:bg-slate-100"}`}
+                  >
+                    Inactive ({displayCount(totalStudents - activeStudents)})
+                  </button>
+                  <button
+                    onClick={() => setAccountTypeFilter("premium")}
+                    className={`rounded-md px-3 py-2 ${accountTypeFilter === "premium" ? "bg-[#fff4e5] text-[#a55a08]" : "text-slate-600 hover:bg-slate-100"}`}
+                  >
+                    Premium ({displayCount(premiumStudents)})
                   </button>
                 </div>
-              </div>
-
-              {/* Stats Cards */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-6">
-                <div className="bg-blue-50 rounded-lg p-3 md:p-4">
-                  <div className="flex items-center gap-2 mb-1">
-                    <Users className="w-4 h-4 text-blue-600" />
-                    <p className="text-xs text-blue-600 font-medium">Total</p>
+                <div className="flex items-center gap-2">
+                  <div className="relative min-w-[210px] flex-1 lg:w-[240px] lg:flex-none">
+                    <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-500" />
+                    <input
+                      type="text"
+                      placeholder="Filter by email, name, or code..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="w-full rounded-md border border-slate-300 bg-[#f9fafb] py-1.5 pl-8 pr-2 text-xs outline-none focus:border-[#0c5c47]"
+                    />
                   </div>
-                  <p className="text-xl md:text-2xl font-bold text-blue-900">{quizTakers.length}</p>
+                  <button
+                    onClick={() => setShowFilterPanel(!showFilterPanel)}
+                    className="rounded-md bg-[#f2f5f4] p-2 text-[#365b50] hover:bg-[#e5eeeb]"
+                    aria-label="Toggle filters"
+                  >
+                    <Filter className="h-4 w-4" />
+                  </button>
                 </div>
-                <div className="bg-purple-50 rounded-lg p-3 md:p-4">
-                  <div className="flex items-center gap-2 mb-1">
-                    <Award className="w-4 h-4 text-purple-600" />
-                    <p className="text-xs text-purple-600 font-medium">Premium</p>
-                  </div>
-                  <p className="text-xl md:text-2xl font-bold text-purple-900">
-                    {quizTakers.filter(t => t.accountType === 'premium').length}
-                  </p>
-                </div>
-                <div className="bg-green-50 rounded-lg p-3 md:p-4">
-                  <div className="flex items-center gap-2 mb-1">
-                    <Check className="w-4 h-4 text-green-600" />
-                    <p className="text-xs text-green-600 font-medium">Active</p>
-                  </div>
-                  <p className="text-xl md:text-2xl font-bold text-green-900">
-                    {quizTakers.filter(t => t.isActive).length}
-                  </p>
-                </div>
-                <div className="bg-orange-50 rounded-lg p-3 md:p-4">
-                  <div className="flex items-center gap-2 mb-1">
-                    <Calendar className="w-4 h-4 text-orange-600" />
-                    <p className="text-xs text-orange-600 font-medium">This Week</p>
-                  </div>
-                  <p className="text-xl md:text-2xl font-bold text-orange-900">
-                    {quizTakers.filter(t => {
-                      const diffTime = Date.now() - new Date(t.createdAt).getTime();
-                      return diffTime < 7 * 24 * 60 * 60 * 1000;
-                    }).length}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Search and Filters */}
-            <div className="bg-white rounded-xl md:rounded-2xl shadow-sm border border-gray-100 p-4 md:p-6 mb-4 md:mb-6">
-              {/* Search Bar */}
-              <div className="relative mb-4">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-                <input
-                  type="text"
-                  placeholder="Search by email, name, or access code..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                />
               </div>
 
               {/* Filter Toggle Button - Mobile */}
               <button
                 onClick={() => setShowFilterPanel(!showFilterPanel)}
-                className="w-full md:hidden flex items-center justify-between px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg mb-3"
+                className="mx-3 mt-3 flex w-[calc(100%-1.5rem)] items-center justify-between rounded-lg border border-gray-200 bg-gray-50 px-4 py-2.5 md:hidden"
               >
                 <div className="flex items-center gap-2">
                   <Filter className="w-4 h-4 text-gray-600" />
-                  <span className="text-sm font-medium text-gray-700">Filters</span>
+                  <span className="text-sm font-medium text-gray-700">
+                    Filters
+                  </span>
                   {activeFilterCount > 0 && (
                     <span className="px-2 py-0.5 bg-blue-600 text-white text-xs rounded-full">
                       {activeFilterCount}
@@ -740,14 +912,17 @@ export default function QuizTakersClient() {
                   )}
                 </div>
                 <ChevronDown
-                  className={`w-4 h-4 text-gray-600 transition-transform ${showFilterPanel ? 'rotate-180' : ''
-                    }`}
+                  className={`w-4 h-4 text-gray-600 transition-transform ${
+                    showFilterPanel ? "rotate-180" : ""
+                  }`}
                 />
               </button>
 
               {/* Filters Panel - Responsive */}
-              <div className={`${showFilterPanel ? 'block' : 'hidden'} md:block space-y-4`}>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+              <div
+                className={`${showFilterPanel ? "block" : "hidden"} space-y-4 border-b border-[#edf1f0] bg-[#fbfcfc] px-3 py-3`}
+              >
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
                   {/* Account Type Filter */}
                   <div>
                     <label className="block text-xs font-medium text-gray-700 mb-1.5">
@@ -755,8 +930,10 @@ export default function QuizTakersClient() {
                     </label>
                     <select
                       value={accountTypeFilter}
-                      onChange={(e) => setAccountTypeFilter(e.target.value as any)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      onChange={(e) =>
+                        setAccountTypeFilter(e.target.value as any)
+                      }
+                      className="w-full rounded-md border border-gray-300 bg-[#f0f2f3] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#8fc9b8]"
                     >
                       <option value="all">All Types</option>
                       <option value="premium">Premium</option>
@@ -772,7 +949,7 @@ export default function QuizTakersClient() {
                     <select
                       value={statusFilter}
                       onChange={(e) => setStatusFilter(e.target.value as any)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full rounded-md border border-gray-300 bg-[#f0f2f3] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#8fc9b8]"
                     >
                       <option value="all">All Status</option>
                       <option value="active">Active</option>
@@ -788,7 +965,7 @@ export default function QuizTakersClient() {
                     <select
                       value={dateFilter}
                       onChange={(e) => setDateFilter(e.target.value as any)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full rounded-md border border-gray-300 bg-[#f0f2f3] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#8fc9b8]"
                     >
                       <option value="all">All Time</option>
                       <option value="today">Today</option>
@@ -805,11 +982,11 @@ export default function QuizTakersClient() {
                     <select
                       value={assignedQuizFilter}
                       onChange={(e) => setAssignedQuizFilter(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full rounded-md border border-gray-300 bg-[#f0f2f3] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#8fc9b8]"
                     >
                       <option value="all">All Exams</option>
                       <option value="none">No Exam Assigned</option>
-                      {assignedQuizzesForFilter.map(quiz => (
+                      {assignedQuizzesForFilter.map((quiz) => (
                         <option key={quiz.id} value={quiz.id}>
                           {quiz.title}
                         </option>
@@ -825,7 +1002,7 @@ export default function QuizTakersClient() {
                       Subject Combinations
                     </label>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-32 overflow-y-auto p-2 bg-gray-50 rounded-lg border border-gray-200">
-                      {uniqueCombinations.map(combo => (
+                      {uniqueCombinations.map((combo) => (
                         <label
                           key={combo.key}
                           className="flex items-start gap-2 p-2 rounded hover:bg-white cursor-pointer transition-colors"
@@ -858,11 +1035,26 @@ export default function QuizTakersClient() {
               </div>
 
               {/* Results Count */}
-              <div className="mt-4 pt-4 border-t border-gray-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                <p className="text-sm text-gray-600">
-                  Showing <span className="font-semibold">{Math.min((currentPage - 1) * pageSize + 1, filteredQuizTakers.length) || 0}–{Math.min(currentPage * pageSize, filteredQuizTakers.length)}</span> of{' '}
-                  <span className="font-semibold">{filteredQuizTakers.length}</span> students
-                </p>
+              <div className="flex flex-col gap-3 px-3 py-3 sm:flex-row sm:items-center sm:justify-between">
+                {isPageLoading ? <p className="text-xs text-gray-600">Loading students…</p> : <p className="text-xs text-gray-600">
+                  Showing{" "}
+                  <span className="font-semibold">
+                    {Math.min(
+                      (currentPage - 1) * pageSize + 1,
+                      filteredQuizTakers.length,
+                    ) || 0}
+                    –
+                    {Math.min(
+                      currentPage * pageSize,
+                      filteredQuizTakers.length,
+                    )}
+                  </span>{" "}
+                  of{" "}
+                  <span className="font-semibold">
+                    {filteredQuizTakers.length}
+                  </span>{" "}
+                  students
+                </p>}
 
                 {/* Bulk Actions - Only show when items selected */}
                 {selectedTakers.length > 0 && (
@@ -870,7 +1062,7 @@ export default function QuizTakersClient() {
                     <button
                       onClick={handleSendInvites}
                       disabled={isSubmitting}
-                      className="px-3 py-1.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50 flex items-center gap-1.5"
+                      className="flex items-center gap-1.5 rounded-md bg-[#0a4c3b] px-3 py-1.5 text-xs font-medium text-white hover:bg-[#063f31] disabled:opacity-50"
                     >
                       <Mail className="w-3.5 h-3.5" />
                       Send Invites ({selectedTakers.length})
@@ -878,7 +1070,7 @@ export default function QuizTakersClient() {
                     <button
                       onClick={() => setShowAssignModal(true)}
                       disabled={isSubmitting}
-                      className="px-3 py-1.5 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 disabled:opacity-50 flex items-center gap-1.5"
+                      className="flex items-center gap-1.5 rounded-md bg-[#286e9e] px-3 py-1.5 text-xs font-medium text-white hover:bg-[#225d85] disabled:opacity-50"
                     >
                       <Send className="w-3.5 h-3.5" />
                       Assign Quiz
@@ -886,7 +1078,7 @@ export default function QuizTakersClient() {
                     <button
                       onClick={() => setShowUnassignModal(true)}
                       disabled={isSubmitting}
-                      className="px-3 py-1.5 bg-orange-600 text-white rounded-lg text-sm font-medium hover:bg-orange-700 disabled:opacity-50 flex items-center gap-1.5"
+                      className="flex items-center gap-1.5 rounded-md bg-[#c57716] px-3 py-1.5 text-xs font-medium text-white hover:bg-[#a9600d] disabled:opacity-50"
                     >
                       <XCircle className="w-3.5 h-3.5" />
                       Unassign
@@ -894,7 +1086,7 @@ export default function QuizTakersClient() {
                     <button
                       onClick={handleDeleteSelected}
                       disabled={isSubmitting}
-                      className="px-3 py-1.5 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 disabled:opacity-50 flex items-center gap-1.5"
+                      className="flex items-center gap-1.5 rounded-md bg-red-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-700 disabled:opacity-50"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                       Delete
@@ -904,63 +1096,74 @@ export default function QuizTakersClient() {
               </div>
             </div>
 
-            {/* Quiz Takers Table - Responsive */}
-            <div className="bg-white rounded-xl md:rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+            {/* Candidate directory */}
+            <div aria-busy={isPageLoading} className="overflow-hidden rounded-xl border border-[#e6eceb] bg-white shadow-sm">
+              {isPageLoading ? <DashboardTableLoading label="Loading students" /> : <>
               {/* Desktop Table View */}
               <div className="hidden md:block overflow-x-auto">
-                <table className="w-full">
-                  <thead className="bg-gray-50 border-b border-gray-200">
+                <table className="w-full min-w-[1060px]">
+                  <thead className="border-b border-[#e4e9e8] bg-[#f1f3f4]">
                     <tr>
-                      <th className="px-6 py-3 text-left">
+                      <th className="px-3 py-3 text-left">
                         <input
                           type="checkbox"
-                          checked={paginatedQuizTakers.length > 0 && paginatedQuizTakers.every(t => selectedTakers.includes(t._id))}
+                          checked={
+                            paginatedQuizTakers.length > 0 &&
+                            paginatedQuizTakers.every((t) =>
+                              selectedTakers.includes(t._id),
+                            )
+                          }
                           onChange={handleSelectAll}
                           className="rounded border-gray-300"
                         />
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Student
+                      <th className="px-3 py-3 text-left text-[10px] font-bold uppercase tracking-wider text-[#5d6665]">
+                        Student / Candidate
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-3 py-3 text-left text-[10px] font-bold uppercase tracking-wider text-[#5d6665]">
                         Type
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-3 py-3 text-left text-[10px] font-bold uppercase tracking-wider text-[#5d6665]">
                         Status
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-3 py-3 text-left text-[10px] font-bold uppercase tracking-wider text-[#5d6665]">
                         Access Code
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Subjects
+                      <th className="px-3 py-3 text-left text-[10px] font-bold uppercase tracking-wider text-[#5d6665]">
+                        Subject Combination
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Exams
+                      <th className="px-3 py-3 text-left text-[10px] font-bold uppercase tracking-wider text-[#5d6665]">
+                        Mock Exams
                       </th>
-                      <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-3 py-3 text-right text-[10px] font-bold uppercase tracking-wider text-[#5d6665]">
                         Actions
                       </th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-200">
+                  <tbody className="divide-y divide-[#edf1f0]">
                     {filteredQuizTakers.length === 0 ? (
                       <tr>
                         <td colSpan={8} className="px-6 py-12 text-center">
                           <div className="flex flex-col items-center justify-center">
                             <Users className="w-12 h-12 text-gray-300 mb-3" />
-                            <p className="text-gray-500 font-medium">No students found</p>
+                            <p className="text-gray-500 font-medium">
+                              No students found
+                            </p>
                             <p className="text-sm text-gray-400 mt-1">
                               {searchTerm || activeFilterCount > 0
-                                ? 'Try adjusting your filters'
-                                : 'Add your first student to get started'}
+                                ? "Try adjusting your filters"
+                                : "Add your first student to get started"}
                             </p>
                           </div>
                         </td>
                       </tr>
                     ) : (
                       paginatedQuizTakers.map((taker) => (
-                        <tr key={taker._id} className="hover:bg-gray-50 transition-colors">
-                          <td className="px-6 py-4">
+                        <tr
+                          key={taker._id}
+                          className={`transition-colors hover:bg-[#f8fbfa] ${selectedTakers.includes(taker._id) ? "bg-[#f1f6f4]" : ""}`}
+                        >
+                          <td className="px-3 py-3">
                             <input
                               type="checkbox"
                               checked={selectedTakers.includes(taker._id)}
@@ -968,56 +1171,84 @@ export default function QuizTakersClient() {
                               className="rounded border-gray-300"
                             />
                           </td>
-                          <td className="px-6 py-4">
-                            <div>
-                              <p className="text-sm font-medium text-gray-900">
-                                {taker.name || 'No Name'}
-                              </p>
-                              <p className="text-sm text-gray-500">{taker.email}</p>
+                          <td className="px-3 py-3">
+                            <div className="flex items-center gap-2.5">
+                              <div
+                                className={`grid h-7 w-7 shrink-0 place-items-center rounded-full text-[9px] font-bold ${taker.isActive ? "bg-[#e1eee9] text-[#164b3c]" : "bg-[#edf0f0] text-[#64716e]"}`}
+                              >
+                                {(taker.name || taker.email)
+                                  .slice(0, 2)
+                                  .toUpperCase()}
+                              </div>
+                              <div>
+                                <p className="text-xs font-semibold text-[#27302f]">
+                                  {taker.name || "No Name"}
+                                </p>
+                                <p className="text-[10px] text-gray-500">
+                                  {taker.email}
+                                </p>
+                              </div>
                             </div>
                           </td>
-                          <td className="px-6 py-4">
+                          <td className="px-3 py-3">
                             <span
-                              className={`px-2 py-1 text-xs font-medium rounded-full ${taker.accountType === 'premium'
-                                ? 'bg-purple-100 text-purple-700'
-                                : 'bg-gray-100 text-gray-700'
-                                }`}
+                              className={`rounded-full px-2 py-1 text-[10px] font-bold ${
+                                taker.accountType === "premium"
+                                  ? "bg-[#fff0df] text-[#ad6511]"
+                                  : "bg-gray-100 text-gray-700"
+                              }`}
                             >
                               {taker.accountType}
                             </span>
                           </td>
-                          <td className="px-6 py-4">
+                          <td className="px-3 py-3">
                             <label className="relative inline-flex items-center cursor-pointer">
                               <input
                                 type="checkbox"
                                 checked={taker.isActive}
-                                onChange={() => handleToggleActive(taker._id, taker.isActive)}
+                                onChange={() =>
+                                  handleToggleActive(taker._id, taker.isActive)
+                                }
                                 className="sr-only peer"
                               />
-                              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-green-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-600"></div>
-                              <span className={`ml-3 text-sm font-medium ${taker.isActive ? 'text-green-700' : 'text-red-700'}`}>
-                                {taker.isActive ? 'Active' : 'Inactive'}
+                              <div className="peer h-5 w-9 rounded-full bg-gray-200 after:absolute after:left-[2px] after:top-[2px] after:h-4 after:w-4 after:rounded-full after:border after:border-gray-300 after:bg-white after:transition-all after:content-[''] peer-checked:after:translate-x-full peer-checked:after:border-white peer-checked:bg-[#074b3a] peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-green-200"></div>
+                              <span
+                                className={`ml-2 text-xs font-semibold ${taker.isActive ? "text-[#155544]" : "text-red-600"}`}
+                              >
+                                {taker.isActive ? "Active" : "Inactive"}
                               </span>
                             </label>
                           </td>
-                          <td className="px-6 py-4">
-                            <code className="text-xs bg-gray-100 px-2 py-1 rounded">
-                              {taker.accessCode || 'N/A'}
-                            </code>
+                          <td className="px-3 py-3">
+                            <button
+                              onClick={() =>
+                                navigator.clipboard?.writeText(
+                                  taker.accessCode || "",
+                                )
+                              }
+                              title="Copy access code"
+                              className="inline-flex items-center gap-1 rounded-sm bg-[#edf0f0] px-2 py-1 font-mono text-[10px] font-bold text-[#35413f] hover:bg-[#dfe7e4]"
+                            >
+                              {taker.accessCode || "N/A"}
+                              <Copy className="h-3 w-3 text-slate-500" />
+                            </button>
                           </td>
-                          <td className="px-6 py-4">
-                            <div className="text-xs text-gray-600">
-                              {taker.questionSetCombination && taker.questionSetCombination.length > 0 ? (
+                          <td className="px-3 py-3">
+                            <div className="text-[11px] text-[#36403e]">
+                              {taker.questionSetCombination &&
+                              taker.questionSetCombination.length > 0 ? (
                                 <div className="space-y-1">
-                                  {taker.questionSetCombination.slice(0, 2).map((qs, idx) => (
-                                    <div key={idx} className="truncate max-w-xs">
-                                      {qs.title}
-                                    </div>
-                                  ))}
+                                  <div className="max-w-[180px] truncate font-medium">
+                                    {taker.questionSetCombination
+                                      .slice(0, 2)
+                                      .map((qs) => qs.title)
+                                      .join(", ")}
+                                  </div>
                                   {taker.questionSetCombination.length > 2 && (
-                                    <div className="text-gray-400">
-                                      +{taker.questionSetCombination.length - 2} more
-                                    </div>
+                                    <span className="rounded-sm bg-[#e9efed] px-1.5 py-0.5 text-[9px] font-bold text-[#36554d]">
+                                      +{taker.questionSetCombination.length - 2}{" "}
+                                      more
+                                    </span>
                                   )}
                                 </div>
                               ) : (
@@ -1025,19 +1256,19 @@ export default function QuizTakersClient() {
                               )}
                             </div>
                           </td>
-                          <td className="px-6 py-4">
-                            <span className="text-sm text-gray-600">
+                          <td className="px-3 py-3">
+                            <span className="rounded-sm bg-[#e9efed] px-1.5 py-0.5 text-[10px] font-bold text-[#31584d]">
                               {taker.assignedQuizzes?.length || 0} assigned
                             </span>
                           </td>
-                          <td className="px-6 py-4 text-right">
+                          <td className="px-3 py-3 text-right">
                             <div className="flex justify-end gap-2">
                               <button
                                 onClick={() => {
                                   setSelectedTakers([taker._id]);
                                   handleSendInvites();
                                 }}
-                                className="text-blue-600 hover:text-blue-700 p-2 rounded-lg hover:bg-blue-50 transition-colors"
+                                className="rounded p-1.5 text-[#2b5e83] hover:bg-blue-50"
                                 title="Send Invite"
                               >
                                 <Mail className="w-4 h-4" />
@@ -1047,14 +1278,16 @@ export default function QuizTakersClient() {
                                   setSelectedTakers([taker._id]);
                                   setShowUnassignModal(true);
                                 }}
-                                className="text-orange-600 hover:text-orange-700 p-2 rounded-lg hover:bg-orange-50 transition-colors"
+                                className="rounded p-1.5 text-[#b96d13] hover:bg-orange-50"
                                 title="Unassign"
                               >
                                 <XCircle className="w-4 h-4" />
                               </button>
                               <button
-                                onClick={() => handleDeleteQuizTaker(taker._id, taker.email)}
-                                className="text-red-600 hover:text-red-700 p-2 rounded-lg hover:bg-red-50 transition-colors"
+                                onClick={() =>
+                                  handleDeleteQuizTaker(taker._id, taker.email)
+                                }
+                                className="rounded p-1.5 text-[#63716e] hover:bg-red-50 hover:text-red-600"
                                 title="Delete"
                               >
                                 <Trash2 className="w-4 h-4" />
@@ -1073,11 +1306,13 @@ export default function QuizTakersClient() {
                 {filteredQuizTakers.length === 0 ? (
                   <div className="px-4 py-12 text-center">
                     <Users className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                    <p className="text-gray-500 font-medium">No students found</p>
+                    <p className="text-gray-500 font-medium">
+                      No students found
+                    </p>
                     <p className="text-sm text-gray-400 mt-1">
                       {searchTerm || activeFilterCount > 0
-                        ? 'Try adjusting your filters'
-                        : 'Add your first student to get started'}
+                        ? "Try adjusting your filters"
+                        : "Add your first student to get started"}
                     </p>
                   </div>
                 ) : (
@@ -1095,18 +1330,21 @@ export default function QuizTakersClient() {
                           {/* Name and Email */}
                           <div className="mb-2">
                             <p className="text-sm font-medium text-gray-900 truncate">
-                              {taker.name || 'No Name'}
+                              {taker.name || "No Name"}
                             </p>
-                            <p className="text-xs text-gray-500 truncate">{taker.email}</p>
+                            <p className="text-xs text-gray-500 truncate">
+                              {taker.email}
+                            </p>
                           </div>
 
                           {/* Badges */}
                           <div className="flex flex-wrap gap-2 mb-3">
                             <span
-                              className={`px-2 py-0.5 text-xs font-medium rounded-full ${taker.accountType === 'premium'
-                                ? 'bg-purple-100 text-purple-700'
-                                : 'bg-gray-100 text-gray-700'
-                                }`}
+                              className={`px-2 py-0.5 text-xs font-medium rounded-full ${
+                                taker.accountType === "premium"
+                                  ? "bg-purple-100 text-purple-700"
+                                  : "bg-gray-100 text-gray-700"
+                              }`}
                             >
                               {taker.accountType}
                             </span>
@@ -1114,12 +1352,16 @@ export default function QuizTakersClient() {
                               <input
                                 type="checkbox"
                                 checked={taker.isActive}
-                                onChange={() => handleToggleActive(taker._id, taker.isActive)}
+                                onChange={() =>
+                                  handleToggleActive(taker._id, taker.isActive)
+                                }
                                 className="sr-only peer"
                               />
                               <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-green-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-600"></div>
-                              <span className={`ml-3 text-xs font-medium ${taker.isActive ? 'text-green-700' : 'text-red-700'}`}>
-                                {taker.isActive ? 'Active' : 'Inactive'}
+                              <span
+                                className={`ml-3 text-xs font-medium ${taker.isActive ? "text-green-700" : "text-red-700"}`}
+                              >
+                                {taker.isActive ? "Active" : "Inactive"}
                               </span>
                             </label>
                             {taker.accessCode && (
@@ -1138,7 +1380,9 @@ export default function QuizTakersClient() {
                               </span>
                             </div>
                             <div className="flex items-center justify-between">
-                              <span className="text-gray-500">Assigned Exams:</span>
+                              <span className="text-gray-500">
+                                Assigned Exams:
+                              </span>
                               <span className="font-medium">
                                 {taker.assignedQuizzes?.length || 0}
                               </span>
@@ -1169,7 +1413,9 @@ export default function QuizTakersClient() {
                             <XCircle className="w-4 h-4" />
                           </button>
                           <button
-                            onClick={() => handleDeleteQuizTaker(taker._id, taker.email)}
+                            onClick={() =>
+                              handleDeleteQuizTaker(taker._id, taker.email)
+                            }
                             className="text-red-600 hover:text-red-700 p-2 rounded-lg hover:bg-red-50 transition-colors flex-shrink-0"
                             title="Delete"
                           >
@@ -1184,22 +1430,32 @@ export default function QuizTakersClient() {
 
               {/* Pagination Bar */}
               {filteredQuizTakers.length > 0 && (
-                <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 md:px-6 py-4 border-t border-gray-200 bg-gray-50">
+                <div className="flex flex-col items-center justify-between gap-3 border-t border-[#e7eceb] bg-[#f4f6f7] px-4 py-3 sm:flex-row">
                   {/* Page size selector + info */}
-                  <div className="flex items-center gap-3 text-sm text-gray-600">
+                  <div className="flex items-center gap-3 text-xs text-gray-600">
                     <span>Rows per page:</span>
                     <select
                       value={pageSize}
                       onChange={(e) => setPageSize(Number(e.target.value))}
-                      className="px-2 py-1 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="rounded-md border border-gray-300 bg-white px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-[#8fc9b8]"
                     >
-                      {[10, 20, 50, 100].map(n => (
-                        <option key={n} value={n}>{n}</option>
+                      {[10, 20, 50, 100].map((n) => (
+                        <option key={n} value={n}>
+                          {n}
+                        </option>
                       ))}
                     </select>
                     <span className="hidden sm:inline">
-                      {Math.min((currentPage - 1) * pageSize + 1, filteredQuizTakers.length)}–
-                      {Math.min(currentPage * pageSize, filteredQuizTakers.length)} of {filteredQuizTakers.length}
+                      {Math.min(
+                        (currentPage - 1) * pageSize + 1,
+                        filteredQuizTakers.length,
+                      )}
+                      –
+                      {Math.min(
+                        currentPage * pageSize,
+                        filteredQuizTakers.length,
+                      )}{" "}
+                      of {filteredQuizTakers.length}
                     </span>
                   </div>
 
@@ -1208,15 +1464,15 @@ export default function QuizTakersClient() {
                     <button
                       onClick={() => setCurrentPage(1)}
                       disabled={currentPage === 1}
-                      className="p-1.5 rounded-lg text-gray-500 hover:bg-gray-200 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                      className="rounded-md p-1.5 text-gray-500 hover:bg-gray-200 disabled:cursor-not-allowed disabled:opacity-40"
                       title="First page"
                     >
                       <ChevronLeft className="w-4 h-4" />
                     </button>
                     <button
-                      onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                      onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                       disabled={currentPage === 1}
-                      className="px-3 py-1.5 rounded-lg text-sm text-gray-600 hover:bg-gray-200 disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center gap-1"
+                      className="flex items-center gap-1 rounded-md px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-200 disabled:cursor-not-allowed disabled:opacity-40"
                     >
                       Prev
                     </button>
@@ -1224,45 +1480,55 @@ export default function QuizTakersClient() {
                     {/* Page number buttons */}
                     <div className="flex items-center gap-1">
                       {Array.from({ length: totalPages }, (_, i) => i + 1)
-                        .filter(p =>
-                          p === 1 ||
-                          p === totalPages ||
-                          Math.abs(p - currentPage) <= 1
+                        .filter(
+                          (p) =>
+                            p === 1 ||
+                            p === totalPages ||
+                            Math.abs(p - currentPage) <= 1,
                         )
-                        .reduce<(number | 'ellipsis')[]>((acc, p, idx, arr) => {
-                          if (idx > 0 && p - (arr[idx - 1] as number) > 1) acc.push('ellipsis');
+                        .reduce<(number | "ellipsis")[]>((acc, p, idx, arr) => {
+                          if (idx > 0 && p - (arr[idx - 1] as number) > 1)
+                            acc.push("ellipsis");
                           acc.push(p);
                           return acc;
                         }, [])
                         .map((item, idx) =>
-                          item === 'ellipsis' ? (
-                            <span key={`ellipsis-${idx}`} className="px-1 text-gray-400 text-sm">…</span>
+                          item === "ellipsis" ? (
+                            <span
+                              key={`ellipsis-${idx}`}
+                              className="px-1 text-gray-400 text-sm"
+                            >
+                              …
+                            </span>
                           ) : (
                             <button
                               key={item}
                               onClick={() => setCurrentPage(item as number)}
-                              className={`min-w-[32px] px-2 py-1.5 rounded-lg text-sm font-medium transition-colors ${currentPage === item
-                                ? 'bg-blue-600 text-white'
-                                : 'text-gray-600 hover:bg-gray-200'
-                                }`}
+                              className={`min-w-[28px] rounded-md px-2 py-1.5 text-xs font-medium transition-colors ${
+                                currentPage === item
+                                  ? "bg-[#0a4c3b] text-white"
+                                  : "text-gray-600 hover:bg-gray-200"
+                              }`}
                             >
                               {item}
                             </button>
-                          )
+                          ),
                         )}
                     </div>
 
                     <button
-                      onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                      onClick={() =>
+                        setCurrentPage((p) => Math.min(totalPages, p + 1))
+                      }
                       disabled={currentPage === totalPages}
-                      className="px-3 py-1.5 rounded-lg text-sm text-gray-600 hover:bg-gray-200 disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center gap-1"
+                      className="flex items-center gap-1 rounded-md px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-200 disabled:cursor-not-allowed disabled:opacity-40"
                     >
                       Next
                     </button>
                     <button
                       onClick={() => setCurrentPage(totalPages)}
                       disabled={currentPage === totalPages}
-                      className="p-1.5 rounded-lg text-gray-500 hover:bg-gray-200 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                      className="rounded-md p-1.5 text-gray-500 hover:bg-gray-200 disabled:cursor-not-allowed disabled:opacity-40"
                       title="Last page"
                     >
                       <ChevronRight className="w-4 h-4" />
@@ -1270,10 +1536,17 @@ export default function QuizTakersClient() {
                   </div>
                 </div>
               )}
+              </>}
             </div>
+
+            
+            {/* <p className="py-6 text-center text-xs text-slate-500">
+              © 2026 BJOT Collegiate Examination Board • Automated Biometric
+              Verification & JAMB Standardized UTME Network
+            </p> */}
           </div>
         </div>
-      </div>
+      </main>
 
       {/* Add Quiz Taker Modal */}
       {showAddModal && (
@@ -1285,8 +1558,8 @@ export default function QuizTakersClient() {
                 <button
                   onClick={() => {
                     setShowAddModal(false);
-                    setNewEmail('');
-                    setNewName('');
+                    setNewEmail("");
+                    setNewName("");
                     setSelectedQuestionSets([]);
                     setError(null);
                   }}
@@ -1343,16 +1616,21 @@ export default function QuizTakersClient() {
                   {questionSets.map((qs) => (
                     <label
                       key={qs._id}
-                      className={`flex items-center p-3 rounded-lg cursor-pointer transition-colors ${selectedQuestionSets.includes(qs._id)
-                        ? 'bg-indigo-50 border-2 border-indigo-500'
-                        : 'bg-gray-50 border-2 border-transparent hover:bg-gray-100'
-                        }`}
+                      className={`flex items-center p-3 rounded-lg cursor-pointer transition-colors ${
+                        selectedQuestionSets.includes(qs._id)
+                          ? "bg-indigo-50 border-2 border-indigo-500"
+                          : "bg-gray-50 border-2 border-transparent hover:bg-gray-100"
+                      }`}
                     >
                       <input
                         type="checkbox"
                         checked={selectedQuestionSets.includes(qs._id)}
                         onChange={() => handleQuestionSetToggle(qs._id)}
-                        disabled={isSubmitting || (!selectedQuestionSets.includes(qs._id) && selectedQuestionSets.length >= 4)}
+                        disabled={
+                          isSubmitting ||
+                          (!selectedQuestionSets.includes(qs._id) &&
+                            selectedQuestionSets.length >= 4)
+                        }
                         className="rounded border-gray-300 mr-3"
                       />
                       <div className="flex-1">
@@ -1373,8 +1651,8 @@ export default function QuizTakersClient() {
               <button
                 onClick={() => {
                   setShowAddModal(false);
-                  setNewEmail('');
-                  setNewName('');
+                  setNewEmail("");
+                  setNewName("");
                   setSelectedQuestionSets([]);
                   setError(null);
                 }}
@@ -1463,7 +1741,7 @@ export default function QuizTakersClient() {
               <button
                 onClick={() => {
                   setShowAssignModal(false);
-                  setSelectedQuizId('');
+                  setSelectedQuizId("");
                 }}
                 className="text-gray-400 hover:text-gray-600"
               >
@@ -1477,7 +1755,8 @@ export default function QuizTakersClient() {
 
             {compatibleQuizzes.length === 0 && selectedTakers.length > 0 ? (
               <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg text-yellow-800 text-sm">
-                No compatible exams found. Selected students have different subject combinations.
+                No compatible exams found. Selected students have different
+                subject combinations.
               </div>
             ) : (
               <select
@@ -1489,7 +1768,8 @@ export default function QuizTakersClient() {
                 <option value="">Select an exam...</option>
                 {compatibleQuizzes.map((quiz) => (
                   <option key={quiz._id} value={quiz._id}>
-                    {quiz.settings.title || `Untitled Exam (${quiz._id.slice(0, 8)})`}
+                    {quiz.settings.title ||
+                      `Untitled Exam (${quiz._id.slice(0, 8)})`}
                   </option>
                 ))}
               </select>
@@ -1499,7 +1779,7 @@ export default function QuizTakersClient() {
               <button
                 onClick={() => {
                   setShowAssignModal(false);
-                  setSelectedQuizId('');
+                  setSelectedQuizId("");
                 }}
                 className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
                 disabled={isSubmitting}
@@ -1527,7 +1807,7 @@ export default function QuizTakersClient() {
               <button
                 onClick={() => {
                   setShowUnassignModal(false);
-                  setSelectedUnassignQuizId('');
+                  setSelectedUnassignQuizId("");
                 }}
                 className="text-gray-400 hover:text-gray-600"
               >
@@ -1553,7 +1833,8 @@ export default function QuizTakersClient() {
                 <option value="">Select an exam to unassign...</option>
                 {assignedQuizzesForUnassign.map((quiz) => (
                   <option key={quiz.id} value={quiz.id}>
-                    {quiz.title} ({quiz.count} of {selectedTakers.length} selected)
+                    {quiz.title} ({quiz.count} of {selectedTakers.length}{" "}
+                    selected)
                   </option>
                 ))}
               </select>
@@ -1563,7 +1844,7 @@ export default function QuizTakersClient() {
               <button
                 onClick={() => {
                   setShowUnassignModal(false);
-                  setSelectedUnassignQuizId('');
+                  setSelectedUnassignQuizId("");
                 }}
                 className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
                 disabled={isSubmitting}

@@ -259,9 +259,9 @@ async function ExamContent({ id }: { id: string }) {
         <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4 mb-6">
           <div className="flex-1">
             <div className="flex items-center gap-3 mb-3">
-              <h1 className="text-3xl font-bold text-gray-900">
+              <h2 className="text-2xl font-bold text-[#0d2818]">
                 {exam.settings.title}
-              </h1>
+              </h2>
               <span
                 className={`px-3 py-1 rounded-full text-xs font-semibold ${
                   exam.isActive

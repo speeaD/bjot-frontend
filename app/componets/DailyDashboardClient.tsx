@@ -1,405 +1,542 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-'use client';
+"use client";
 
-import { useState, useEffect, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
-import { adminApi } from '../lib/api/attendance-client';
-import { AttendanceSession, Department } from '../types/global';
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
-  formatTime,
-  formatDate,
-  formatDateForApi,
-  getTodayDate,
-  getTimeRemaining,
-  getDepartmentColor,
-} from '../lib/utils/attendance-utils';
-import Sidebar from './Sidebar';
-import { Upload } from 'lucide-react';
+  Activity,
+  CalendarDays,
+  Check,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  Clock3,
+  Fingerprint,
+  GraduationCap,
+  ListChecks,
+  Plus,
+  RefreshCw,
+} from "lucide-react";
+import { adminApi } from "../lib/api/attendance-client";
+import { AttendanceSession, Department } from "../types/global";
+import { formatDate, formatTime } from "../lib/utils/attendance-utils";
 
-interface DailyDashboardClientProps {
+interface Props {
   initialSessions: Record<Department, AttendanceSession[]> | null;
   initialDate: string;
   initialError: string | null;
 }
+const departments: Department[] = ["Sciences", "Arts", "Commercial"];
+const labels: Record<
+  Department,
+  { title: string; number: string; icon: React.ReactNode }
+> = {
+  Sciences: {
+    title: "Sciences & Medicine",
+    number: "01",
+    icon: <Fingerprint className="h-4 w-4" />,
+  },
+  Arts: {
+    title: "Arts & Humanities",
+    number: "02",
+    icon: <GraduationCap className="h-4 w-4" />,
+  },
+  Commercial: {
+    title: "Commercial & Management",
+    number: "03",
+    icon: <Activity className="h-4 w-4" />,
+  },
+};
 
 export default function DailyDashboardClient({
   initialSessions,
   initialDate,
-  initialError: serverError
-}: DailyDashboardClientProps) {
+  initialError,
+}: Props) {
   const router = useRouter();
   const [selectedDate, setSelectedDate] = useState(initialDate);
-  const [sessions, setSessions] = useState<Record<Department, AttendanceSession[]>>(
-    initialSessions || {
-      Sciences: [],
-      Arts: [],
-      Commercial: [],
-    }
-  );
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState(serverError || '');
-  const [successMessage, setSuccessMessage] = useState('');
-  const [expandedDepartment, setExpandedDepartment] = useState<Department | null>('Sciences');
+  const [sessions, setSessions] = useState<
+    Record<Department, AttendanceSession[]>
+  >(initialSessions || { Sciences: [], Arts: [], Commercial: [] });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(initialError || "");
+  const [notice, setNotice] = useState("");
+  const [expanded, setExpanded] = useState<Record<Department, boolean>>({
+    Sciences: true,
+    Arts: true,
+    Commercial: true,
+  });
 
   const loadSessions = useCallback(async () => {
-    setIsLoading(true);
-    setError('');
+    setLoading(true);
+    setError("");
     try {
       const response = await adminApi.getSessionsForDate(selectedDate);
-      console.log("Fetched sessions for date", selectedDate, ":", response);
       setSessions(response.data);
-    } catch (err: any) {
-      setError(err.message || 'Failed to load sessions');
+    } catch (reason: any) {
+      setError(reason.message || "Unable to load attendance sessions");
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   }, [selectedDate]);
-
   useEffect(() => {
     if (selectedDate !== initialDate) {
       loadSessions();
-      // Update URL
-      router.push(`/attendance?date=${selectedDate}`);
+      router.push("/attendance?date=" + selectedDate);
     }
-    
-  }, [selectedDate, loadSessions, router, initialDate]);
-
-  // Poll for updates every 30 seconds
+  }, [selectedDate, initialDate, loadSessions, router]);
   useEffect(() => {
-    const interval = setInterval(() => {
-      loadSessions();
-      
-    }, 300000);
+    const timer = setInterval(loadSessions, 300000);
+    return () => clearInterval(timer);
+  }, [loadSessions]);
 
-    return () => clearInterval(interval);
-    
-  }, [selectedDate, loadSessions]);
+  const allSessions = useMemo(
+    () => departments.flatMap((department) => sessions[department] || []),
+    [sessions],
+  );
+  const totalStudents = allSessions.reduce(
+    (sum, session) => sum + session.totalStudents,
+    0,
+  );
+  const totalPresent = allSessions.reduce(
+    (sum, session) => sum + session.presentCount,
+    0,
+  );
+  const attendance = totalStudents ? (totalPresent / totalStudents) * 100 : 0;
+  const live = allSessions.filter(
+    (session) =>
+      session.attendanceWindow?.isOpen || session.status === "ongoing",
+  );
 
-
-
-  const handleCreateSessions = async (department: Department) => {
+  const createSessions = async (department: Department) => {
     try {
       await adminApi.createSessionsFromSchedule(department, selectedDate);
-      setSuccessMessage(`Sessions created for ${department}`);
+      setNotice("Sessions created for " + department);
       loadSessions();
-      setTimeout(() => setSuccessMessage(''), 30000);
-    } catch (err: any) {
-      setError(err.message || 'Failed to create sessions');
+    } catch (reason: any) {
+      setError(reason.message || "Could not create sessions");
     }
   };
-
-  const handleOpenWindow = async (sessionId: string) => {
-    console.log('Attempting to open attendance window for session:', sessionId);
-    setError('');
-    setSuccessMessage('');
-    
+  const toggleWindow = async (session: AttendanceSession) => {
     try {
-      const response = await adminApi.openAttendanceWindow(sessionId, {
-        durationMinutes: 30,
-        bufferMinutes: 15,
-      });
-      console.log('Open window response:', response);
-      setSuccessMessage('Attendance window opened');
-      loadSessions();
-      setTimeout(() => setSuccessMessage(''), 30000);
-    } catch (err: any) {
-      console.error('Open window error:', err);
-      setError(err.message || 'Failed to open window');
-      // Log more details for debugging
-      if (err.response) {
-        console.error('Error response:', err.response);
+      if (session.attendanceWindow?.isOpen) {
+        await adminApi.closeAttendanceWindow(session._id);
+        setNotice("Roll call closed");
+      } else {
+        await adminApi.openAttendanceWindow(session._id, {
+          durationMinutes: 30,
+          bufferMinutes: 15,
+        });
+        setNotice("Attendance window opened");
       }
+      loadSessions();
+    } catch (reason: any) {
+      setError(reason.message || "Could not update roll call");
     }
   };
-
-  const handleCloseWindow = async (sessionId: string) => {
-    console.log('Attempting to close attendance window for session:', sessionId);
-    setError('');
-    setSuccessMessage('');
-    
-    try {
-      const response = await adminApi.closeAttendanceWindow(sessionId);
-      console.log('Close window response:', response);
-      setSuccessMessage('Attendance window closed');
-      loadSessions();
-      setTimeout(() => setSuccessMessage(''), 30000);
-    } catch (err: any) {
-      console.error('Close window error:', err);
-      setError(err.message || 'Failed to close window');
-      // Log more details for debugging
-      if (err.response) {
-        console.error('Error response:', err.response);
-      }
-    }
-  };
-
-  const SessionCard = ({ session }: { session: AttendanceSession }) => {
-    console.log('Rendering session card for session:', session);
-    const isWindowOpen = session.attendanceWindow.isOpen;
-    const timeRemaining = isWindowOpen && session.attendanceWindow.openedAt
-      ? getTimeRemaining(session.attendanceWindow.openedAt, session.attendanceWindow.durationMinutes)
-      : null;
-
-    const attendancePercentage = session.totalStudents > 0
-      ? ((session.presentCount / session.totalStudents) * 100).toFixed(0)
-      : 0;
-
-    return (
-      <div className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
-        <div className="flex items-start justify-between mb-3">
-          <div className="flex-1">
-            <h4 className="font-semibold text-gray-900 text-lg">{session.questionSetTitle}</h4>
-            <p className="text-sm text-gray-600 mt-1">
-              {formatTime(session.scheduledStartTime)} - {formatTime(session.scheduledEndTime)}
-            </p>
-          </div>
-
-          <div className={`px-3 py-1 rounded-full text-xs font-medium ${session.status === 'ongoing' ? 'bg-green-100 text-green-800' :
-            session.status === 'completed' ? 'bg-gray-100 text-gray-800' :
-              session.status === 'cancelled' ? 'bg-red-100 text-red-800' :
-                'bg-blue-100 text-blue-800'
-            }`}>
-            {session.status}
-          </div>
-        </div>
-
-        {/* Attendance Window Status */}
-        <div className="mb-4">
-          {isWindowOpen ? (
-            <div className="bg-green-50 border border-green-200 rounded-lg p-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-2">
-                  <div className="h-2 w-2 bg-green-500 rounded-full animate-pulse"></div>
-                  <span className="text-sm font-medium text-green-800">Window Open</span>
-                </div>
-                {timeRemaining && !timeRemaining.isExpired && (
-                  <span className="text-sm text-green-700 font-mono">
-                    {timeRemaining.displayText} left
-                  </span>
-                )}
-              </div>
-            </div>
-          ) : (
-            <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
-              <div className="flex items-center space-x-2">
-                <div className="h-2 w-2 bg-gray-400 rounded-full"></div>
-                <span className="text-sm font-medium text-gray-600">Window Closed</span>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Statistics */}
-        <div className="grid grid-cols-3 gap-3 mb-4">
-          <div className="bg-blue-50 rounded-lg p-3">
-            <div className="text-2xl font-bold text-blue-900">{session.totalStudents}</div>
-            <div className="text-xs text-blue-700">Total</div>
-          </div>
-          <div className="bg-green-50 rounded-lg p-3">
-            <div className="text-2xl font-bold text-green-900">{session.presentCount}</div>
-            <div className="text-xs text-green-700">Present</div>
-          </div>
-          <div className="bg-red-50 rounded-lg p-3">
-            <div className="text-2xl font-bold text-red-900">{session.absentCount}</div>
-            <div className="text-xs text-red-700">Absent</div>
-          </div>
-        </div>
-
-        {/* Progress Bar */}
-        <div className="mb-4">
-          <div className="flex justify-between text-xs text-gray-600 mb-1">
-            <span>Attendance</span>
-            <span>{attendancePercentage}%</span>
-          </div>
-          <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
-            <div
-              className="h-full bg-green-500 transition-all duration-300"
-              style={{ width: `${attendancePercentage}%` }}
-            />
-          </div>
-        </div>
-
-        {/* Actions */}
-        <div className="flex space-x-2">
-          {isWindowOpen ? (
-            <button
-              onClick={() => handleCloseWindow(session._id)}
-              className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm font-medium"
-            >
-              Close Window
-            </button>
-          ) : (
-            <button
-              onClick={() => handleOpenWindow(session._id)}
-              className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium"
-            >
-              Open Window
-            </button>
-          )}
-          <button
-            onClick={() => window.location.href = `/attendance/sessions/${session._id}`}
-            className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm font-medium"
-          >
-            View Details
-          </button>
-        </div>
-      </div>
-    );
-  };
-
-  const DepartmentSection = ({ department }: { department: Department }) => {
-    const departmentSessions = sessions[department] || [];
-    const isExpanded = expandedDepartment === department;
-
-    const totalStudents = departmentSessions.reduce((sum, s) => sum + s.totalStudents, 0);
-    const totalPresent = departmentSessions.reduce((sum, s) => sum + s.presentCount, 0);
-    const avgAttendance = totalStudents > 0 ? ((totalPresent / totalStudents) * 100).toFixed(0) : 0;
-
-    return (
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-        <button
-          onClick={() => setExpandedDepartment(isExpanded ? null : department)}
-          className="w-full p-6 flex items-center justify-between hover:bg-gray-50 transition-colors"
-        >
-          <div className="flex items-center space-x-4">
-            <div className={`px-4 py-2 rounded-lg font-semibold ${getDepartmentColor(department)}`}>
-              {department}
-            </div>
-            <div className="text-left">
-              <div className="text-sm text-gray-600">
-                {departmentSessions.length} {departmentSessions.length === 1 ? 'class' : 'classes'} today
-              </div>
-              {departmentSessions.length > 0 && (
-                <div className="text-xs text-gray-500">
-                  {totalPresent}/{totalStudents} students ({avgAttendance}% avg)
-                </div>
-              )}
-            </div>
-          </div>
-
-          <div className="flex items-center space-x-4">
-            {departmentSessions.length === 0 && (
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleCreateSessions(department);
-                }}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
-              >
-                Create Sessions
-              </button>
-            )}
-            <svg
-              className={`w-5 h-5 text-gray-500 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-            </svg>
-          </div>
-        </button>
-
-        {isExpanded && departmentSessions.length > 0 && (
-          <div className="p-6 pt-0 border-t border-gray-100">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {departmentSessions.map((session) => (
-                <SessionCard key={session._id} session={session} />
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
-    );
+  const shiftDay = (delta: number) => {
+    const date = new Date(selectedDate + "T12:00:00");
+    date.setDate(date.getDate() + delta);
+    setSelectedDate(date.toISOString().slice(0, 10));
   };
 
   return (
-    <div className="mx-auto p-6 bg-gray-50 min-h-screen">
+    <main className="min-h-screen bg-[#f5f7f6] px-4 pb-10 pt-5 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-[1440px]">
+        <header className="mb-4 flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight text-[#091d15] sm:text-3xl">
+              Attendance &amp; Check-ins
+            </h1>
+            <p className="mt-1 max-w-2xl text-sm text-slate-500">
+              Manage BJOT class schedules, live biometric roll calls,
+              and student session tracking.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={() => router.push("/attendance/analytics")}
+              className="inline-flex items-center gap-2 rounded-lg bg-white px-4 py-2.5 text-xs font-semibold text-[#193026] shadow-sm ring-1 ring-[#e5ebe8]"
+            >
+              <Activity className="h-4 w-4" /> View analytics
+            </button>
+            <button
+              onClick={() => router.push("/schedules")}
+              className="inline-flex items-center gap-2 rounded-lg bg-[#004b37] px-4 py-2.5 text-xs font-semibold text-white shadow-sm hover:bg-[#003b2c]"
+            >
+              <Plus className="h-4 w-4" /> Create schedule
+            </button>
+          </div>
+        </header>
 
-      <div className='max-w-7xl mx-auto'>
-        <div className="grid grid-cols-12 gap-6">
-          {/* Left Sidebar */}
-          <Sidebar />
+        <section className="mb-4 grid grid-cols-1 gap-3 md:grid-cols-3">
+          <Summary
+            icon={<CalendarDays />}
+            label="Today's class volume"
+            value={allSessions.length.toString()}
+            detail="Sessions scheduled"
+            tone="mint"
+          />
+          <Summary
+            icon={<Check />}
+            label="Candidate attendance rate"
+            value={attendance.toFixed(1) + "%"}
+            detail={
+              totalPresent.toLocaleString() +
+              " present / " +
+              totalStudents.toLocaleString()
+            }
+            tone="orange"
+          />
+          <Summary
+            icon={<Fingerprint />}
+            label="Real-time biometrics"
+            value={live.length.toString() + " sessions"}
+            detail={live.length ? "Actively live" : "No current live window"}
+            tone="peach"
+          />
+        </section>
 
-          {/* Main Content */}
-          <div className="col-span-9">
-            <div className="flex items-center justify-between mb-8">
-                            <div>
-                                <h1 className="text-3xl font-bold text-gray-900">Attendance</h1>
-                                <p className="text-gray-600 mt-1">Manage attendance for your classes</p>
-                            </div>
-                            <div className="flex gap-3">
-                               
-                                <button
-                                    onClick={() => router.push('/schedules')}
-                                    className="flex items-center gap-2 px-6 py-2 bg-green-700 text-white rounded-lg hover:bg-green-700"
-                                >
-                               
-                                    Create Schedules
-                                </button>
-                                <button
-                                    onClick={() => router.push('/attendance/analytics')}
-                                    className="flex items-center gap-2 px-6 py-2 bg-blue-700 text-white rounded-lg hover:bg-blue-700"
-                                >
-                               
-                                    View Analytics
-                                </button>
-                            </div>
-                        </div>
+        <section className="mb-4 flex flex-col gap-3 rounded-xl border border-[#e5ebe8] bg-white p-3 shadow-sm lg:flex-row lg:items-center">
+          <div className="flex min-w-0 items-center gap-2 rounded-lg bg-[#f2f5f3] p-1">
+            <button
+              onClick={() => shiftDay(-1)}
+              className="rounded p-2 text-slate-600 hover:bg-white"
+              aria-label="Previous day"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+            <CalendarDays className="h-4 w-4 text-[#a74408]" />
+            <label className="min-w-0">
+              <span className="sr-only">Selected date</span>
+              <input
+                type="date"
+                value={selectedDate}
+                onChange={(event) => setSelectedDate(event.target.value)}
+                className="w-[150px] bg-transparent text-xs font-semibold text-[#15271f] outline-none"
+              />
+            </label>
+            <button
+              onClick={() => shiftDay(1)}
+              className="rounded p-2 text-slate-600 hover:bg-white"
+              aria-label="Next day"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </button>
+          </div>
+          <p className="text-xs text-slate-500">{formatDate(selectedDate)}</p>
+          <div className="ml-auto flex items-center gap-2">
+            <button
+              onClick={loadSessions}
+              disabled={loading}
+              className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold text-[#004b37] hover:bg-[#edf4ef] disabled:opacity-50"
+            >
+              <RefreshCw
+                className={"h-3.5 w-3.5 " + (loading ? "animate-spin" : "")}
+              />{" "}
+              Refresh
+            </button>
+            {departments.map((department) => (
+              <span
+                key={department}
+                className="hidden rounded-lg bg-[#f3f5f4] px-2.5 py-1.5 text-[10px] font-medium text-slate-600 xl:inline"
+              >
+                {department} ({(sessions[department] || []).length})
+              </span>
+            ))}
+          </div>
+        </section>
+        {error && (
+          <p className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+            {error}
+          </p>
+        )}
+        {notice && (
+          <p className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700">
+            {notice}
+          </p>
+        )}
 
-            {/* Date Selector */}
-            <div className="mb-6 flex items-center space-x-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Select Date</label>
-                <input
-                  type="date"
-                  value={selectedDate}
-                  onChange={(e) => setSelectedDate(e.target.value)}
-                  className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-              </div>
-              <div className="flex-1 flex items-center justify-between">
-                <p className="text-sm text-gray-600 mt-6">
-                  {formatDate(selectedDate)}
-                </p>
-                <button
-                  onClick={loadSessions}
-                  disabled={isLoading}
-                  className="mt-6 px-4 py-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors disabled:opacity-50"
-                >
-                  {isLoading ? 'Refreshing...' : 'Refresh'}
-                </button>
-              </div>
-            </div>
-
-            {/* Messages */}
-            {error && (
-              <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg text-red-600">
-                {error}
-              </div>
-            )}
-
-            {successMessage && (
-              <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-lg text-green-600">
-                {successMessage}
-              </div>
-            )}
-
-            {/* Department Sections */}
-            {isLoading ? (
-              <div className="flex items-center justify-center py-12">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-              </div>
+        <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_290px]">
+          <div className="space-y-4">
+            {loading ? (
+              <Loading />
             ) : (
-              <div className="space-y-4">
-                <DepartmentSection department="Sciences" />
-                <DepartmentSection department="Arts" />
-                <DepartmentSection department="Commercial" />
-              </div>
+              departments.map((department) => (
+                <DepartmentPanel
+                  key={department}
+                  department={department}
+                  list={sessions[department] || []}
+                  open={expanded[department]}
+                  onToggle={() =>
+                    setExpanded((value) => ({
+                      ...value,
+                      [department]: !value[department],
+                    }))
+                  }
+                  onCreate={() => createSessions(department)}
+                  onWindow={toggleWindow}
+                  onDetails={(id) => router.push("/attendance/sessions/" + id)}
+                />
+              ))
             )}
           </div>
+          <aside className="space-y-4">
+            <section className="rounded-xl border border-[#e5ebe8] bg-white p-4 shadow-sm">
+              <div className="mb-3 flex items-center justify-between">
+                <div>
+                  <h2 className="text-base font-bold text-[#17281f]">
+                    Fast check-in
+                  </h2>
+                  <p className="text-xs text-slate-500">
+                    Manual candidate roll call
+                  </p>
+                </div>
+                <Fingerprint className="h-5 w-5 text-[#a74408]" />
+              </div>
+              <p className="mb-4 text-xs leading-5 text-slate-500">
+                Rapid student verification using BJOT registration code.
+              </p>
+              <label className="text-[10px] font-bold uppercase tracking-[.12em] text-slate-500">
+                Student registration code
+              </label>
+              <div className="mt-1 flex gap-2">
+                <input
+                  placeholder="e.g. BJOT-2026-…"
+                  className="min-w-0 flex-1 rounded-lg border border-slate-200 px-3 py-2 text-xs outline-none focus:border-[#004b37]"
+                />
+                <button className="rounded-lg bg-[#004b37] px-3 text-xs font-semibold text-white">
+                  Mark
+                </button>
+              </div>
+              
+            </section>
+            
+            <section className="rounded-xl bg-[#003d2e] p-4 text-white shadow-sm">
+              <p className="text-[10px] font-bold uppercase tracking-[.13em] text-[#ffad4c]">
+                Notice for examiners
+              </p>
+              <h2 className="mt-2 text-lg font-bold">
+                Roll call locking policy
+              </h2>
+              <p className="mt-2 text-xs leading-5 text-white/70">
+                Attendance sessions lock automatically after the lecture window.
+                Late records require proctor authorization.
+              </p>
+              <div className="mt-4 border-t border-white/10 pt-3 text-[10px] text-white/60">
+                Sync status: <b className="text-white">Healthy</b>
+              </div>
+            </section>
+          </aside>
         </div>
       </div>
+    </main>
+  );
+}
+
+function Summary({
+  icon,
+  label,
+  value,
+  detail,
+  tone,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+  detail: string;
+  tone: "mint" | "orange" | "peach";
+}) {
+  const colors = {
+    mint: "bg-[#e7f5ed] text-[#004b37]",
+    orange: "bg-[#fff0e3] text-[#a74408]",
+    peach: "bg-[#ffe5d4] text-[#a74408]",
+  };
+  return (
+    <article className="rounded-xl border border-[#e5ebe8] bg-white p-4 shadow-sm">
+      <div className="flex items-start justify-between">
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-[.13em] text-slate-600">
+            {label}
+          </p>
+          <p className="mt-2 text-2xl font-bold text-[#0c1e16]">{value}</p>
+          <p className="mt-1 text-xs text-slate-500">{detail}</p>
+        </div>
+        <span
+          className={
+            "grid h-9 w-9 place-items-center rounded-lg " + colors[tone]
+          }
+        >
+          {icon}
+        </span>
+      </div>
+    </article>
+  );
+}
+function DepartmentPanel({
+  department,
+  list,
+  open,
+  onToggle,
+  onCreate,
+  onWindow,
+  onDetails,
+}: {
+  department: Department;
+  list: AttendanceSession[];
+  open: boolean;
+  onToggle: () => void;
+  onCreate: () => void;
+  onWindow: (session: AttendanceSession) => void;
+  onDetails: (id: string) => void;
+}) {
+  const heading = labels[department];
+  const live = list.filter(
+    (item) => item.attendanceWindow?.isOpen || item.status === "ongoing",
+  ).length;
+  return (
+    <section className="overflow-hidden rounded-xl border border-[#e5ebe8] bg-white shadow-sm">
+      <div className="flex items-center gap-3 bg-[#f7f8f7] p-4">
+        <span className="grid h-8 w-8 place-items-center rounded-lg bg-[#004b37] text-white">
+          {heading.icon}
+        </span>
+        <div className="min-w-0 flex-1">
+          <h2 className="font-bold text-[#12231b]">
+            {heading.title}{" "}
+            <span className="ml-1 rounded bg-[#e5e9e7] px-1.5 py-0.5 text-[9px] font-bold tracking-wider text-slate-500">
+              FACULTY {heading.number}
+            </span>
+          </h2>
+          <p className="text-xs text-slate-500">
+            {list.length} classes scheduled today ·{" "}
+            <b className={live ? "text-[#b24510]" : "text-slate-500"}>
+              {live} live now
+            </b>
+          </p>
+        </div>
+        {!list.length && (
+          <button
+            onClick={onCreate}
+            className="inline-flex items-center gap-1 rounded-lg bg-[#004b37] px-3 py-2 text-xs font-semibold text-white"
+          >
+            <Plus className="h-3.5 w-3.5" /> New session
+          </button>
+        )}
+        <button onClick={onToggle} className="rounded-lg p-2 text-slate-500">
+          <ChevronDown
+            className={"h-4 w-4 transition " + (open ? "" : "-rotate-90")}
+          />
+        </button>
+      </div>
+      {open && (
+        <div className="divide-y divide-slate-100">
+          {list.length ? (
+            list.map((session) => (
+              <SessionRow
+                key={session._id}
+                session={session}
+                onWindow={onWindow}
+                onDetails={onDetails}
+              />
+            ))
+          ) : (
+            <p className="p-6 text-center text-sm text-slate-500">
+              No sessions were created for this faculty on the selected day.
+            </p>
+          )}
+        </div>
+      )}
+    </section>
+  );
+}
+function SessionRow({
+  session,
+  onWindow,
+  onDetails,
+}: {
+  session: AttendanceSession;
+  onWindow: (session: AttendanceSession) => void;
+  onDetails: (id: string) => void;
+}) {
+  const rate = session.totalStudents
+    ? (session.presentCount / session.totalStudents) * 100
+    : 0;
+  const active =
+    session.attendanceWindow?.isOpen || session.status === "ongoing";
+  return (
+    <article className="grid gap-3 p-4 md:grid-cols-[minmax(0,1fr)_120px_auto] md:items-center">
+      <div>
+        <div className="mb-1 flex flex-wrap items-center gap-2">
+          <span
+            className={
+              "h-2 w-2 rounded-full " +
+              (active
+                ? "bg-[#ff9423]"
+                : session.status === "completed"
+                  ? "bg-[#004b37]"
+                  : "bg-slate-300")
+            }
+          />
+          <h3 className="font-semibold text-[#16271f]">
+            {session.questionSetTitle}
+          </h3>
+          <span
+            className={
+              "rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-[.1em] " +
+              (active
+                ? "bg-[#fff0e3] text-[#a74408]"
+                : session.status === "completed"
+                  ? "bg-[#dff4e8] text-[#176148]"
+                  : "bg-slate-100 text-slate-500")
+            }
+          >
+            {active ? "In progress" : session.status}
+          </span>
+        </div>
+        <p className="flex items-center gap-1.5 text-xs text-slate-500">
+          <Clock3 className="h-3.5 w-3.5 text-[#a74408]" />{" "}
+          {formatTime(session.scheduledStartTime)} –{" "}
+          {formatTime(session.scheduledEndTime)}
+        </p>
+      </div>
+      <div className="text-left md:text-right">
+        <p className="text-lg font-bold text-[#15271f]">
+          {session.presentCount}
+          <span className="text-slate-400"> / {session.totalStudents}</span>
+        </p>
+        <p className="text-[10px] text-slate-500">
+          {rate.toFixed(1)}% attendance
+        </p>
+      </div>
+      <div className="flex justify-start gap-2 md:justify-end">
+        {session.status === "completed" ? (
+          <button
+            onClick={() => onDetails(session._id)}
+            className="rounded-lg bg-[#eff2f1] px-3 py-2 text-xs font-semibold text-[#30453a]"
+          >
+            View roster
+          </button>
+        ) : (
+          <button
+            onClick={() => onWindow(session)}
+            className="rounded-lg bg-[#004b37] px-3 py-2 text-xs font-semibold text-white"
+          >
+            {active ? "Close roll call" : "Open session"}
+          </button>
+        )}
+      </div>
+    </article>
+  );
+}
+function Loading() {
+  return (
+    <div className="space-y-4">
+      {[1, 2, 3].map((item) => (
+        <div
+          key={item}
+          className="h-32 animate-pulse rounded-xl bg-slate-200"
+        />
+      ))}
     </div>
   );
 }

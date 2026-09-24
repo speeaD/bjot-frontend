@@ -216,10 +216,10 @@ export default function StudentAnalyticsClient({
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
-    <div className="max-w-7xl mx-auto p-6">
+    <div className="max-w-7xl mx-auto p-4 sm:p-6">
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">Student Attendance Analytics</h1>
+        <h2 className="mb-2 text-xl font-bold text-[#0d2818]">Department Overview</h2>
         <p className="text-gray-600">Track and analyze student attendance patterns</p>
       </div>
 

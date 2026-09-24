@@ -42,7 +42,13 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(data, { status: response.status });
     }
 
-    return NextResponse.json(data);
+    return NextResponse.json({
+      ...data,
+      questionSets: (data.questionSets || []).map((questionSet: { id?: string; _id?: string }) => ({
+        ...questionSet,
+        _id: questionSet._id || questionSet.id,
+      })),
+    });
   } catch (error) {
     console.error('Error fetching question sets:', error);
     return NextResponse.json(

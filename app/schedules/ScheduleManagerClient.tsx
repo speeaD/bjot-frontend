@@ -220,15 +220,15 @@ export default function ScheduleManagerClient({
 
   return (
     <div className="bg-gray-50 min-h-screen">
-      <div className="max-w-7xl mx-auto p-6">
+      <div className="max-w-7xl mx-auto p-4 sm:p-6">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Schedule Manager</h1>
+          <h2 className="mb-2 text-xl font-bold text-[#0d2818]">Weekly Schedules</h2>
           <p className="text-gray-600">Manage weekly class schedules for each department</p>
         </div>
 
         {/* Department Tabs */}
         <div className="mb-6 border-b border-gray-200">
-          <div className="flex space-x-8">
+          <div className="flex gap-6 overflow-x-auto whitespace-nowrap">
             {DEPARTMENTS.map((dept) => (
               <button
                 key={dept}

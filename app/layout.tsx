@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Poppins } from "next/font/google";
 import "./globals.css";
-import NavBar from "./componets/Navbar";
+import DashboardShell from "./componets/dashboard/DashboardShell";
 import { cookies } from "next/headers";
 
 const poppins = Poppins({
@@ -29,8 +29,9 @@ export default async function RootLayout({
       <body
         className={`${poppins.variable} antialiased`}
       >
-        {isAuthenticated && <NavBar />}
-        {children}
+        <DashboardShell showHeader={isAuthenticated}>
+          {children}
+        </DashboardShell>
       </body>
     </html>
   );

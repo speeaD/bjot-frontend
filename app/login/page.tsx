@@ -4,7 +4,6 @@ import { useState } from 'react';
 import { Eye, EyeOff, Lock, Mail, Loader2 } from 'lucide-react';
 
 export default function Login() {
-    const backend_url = process.env.BACKEND_URL || 'https://bjot-backend-nine.vercel.app/api';
     const [showPassword, setShowPassword] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     const [formData, setFormData] = useState({
@@ -39,7 +38,7 @@ export default function Login() {
         setIsLoading(true);
         setErrors({});
         try {
-            const response = await fetch(`${backend_url}/auth/admin/login`, {
+            const response = await fetch('/api/auth/login', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -51,7 +50,6 @@ export default function Login() {
             });
 
             const data = await response.json();
-            console.log(data);
 
             if (!response.ok) {
                 setErrors({
@@ -109,18 +107,20 @@ export default function Login() {
     };
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center p-4">
+        <div className="flex min-h-screen items-center justify-center bg-[radial-gradient(circle_at_15%_15%,#e6f2eb_0%,#f5f8f6_42%,#eff3f0_100%)] p-4">
             <div className="w-full max-w-md">
                 <div className="text-center mb-8">
-                    <h1 className="text-3xl font-bold text-slate-900 mb-2">
-                        BJOT Admin
+                    <div className="mx-auto mb-4 grid h-12 w-12 place-items-center rounded-xl bg-[#0d2818] text-lg font-bold text-white shadow-sm">B</div>
+                    <span className="mb-2 inline-block rounded-full bg-[#fff1dd] px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-[#a96212]">Collegiate Board</span>
+                    <h1 className="mb-2 text-3xl font-bold text-[#0d2818]">
+                        BJOT Admin Portal
                     </h1>
                     <p className="text-slate-600">
                         Sign in to manage your quizzes
                     </p>
                 </div>
 
-                <div className="bg-white rounded-2xl shadow-lg p-8">
+                <div className="rounded-2xl border border-[#e2ebe5] bg-white p-6 shadow-[0_12px_40px_rgba(13,40,24,.08)] sm:p-8">
                     {errors.general && (
                         <div className="mb-5 p-4 bg-red-50 border border-red-200 rounded-lg">
                             <p className="text-sm text-red-600">{errors.general}</p>
@@ -145,7 +145,7 @@ export default function Login() {
                                     className={`w-full pl-11 pr-4 py-3 border rounded-lg focus:outline-none focus:ring-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
                                         errors.email
                                             ? 'border-red-300 focus:ring-red-200'
-                                            : 'border-slate-300 focus:ring-slate-200'
+                                            : 'border-slate-300 focus:ring-[#cce5d6]'
                                     }`}
                                     placeholder="admin@example.com"
                                 />
@@ -172,7 +172,7 @@ export default function Login() {
                                     className={`w-full pl-11 pr-11 py-3 border rounded-lg focus:outline-none focus:ring-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
                                         errors.password
                                             ? 'border-red-300 focus:ring-red-200'
-                                            : 'border-slate-300 focus:ring-slate-200'
+                                            : 'border-slate-300 focus:ring-[#cce5d6]'
                                     }`}
                                     placeholder="••••••••"
                                 />
@@ -197,7 +197,7 @@ export default function Login() {
                         <button
                             onClick={handleSubmit}
                             disabled={isLoading}
-                            className="w-full bg-slate-900 text-white py-3 rounded-lg font-medium hover:bg-slate-800 transition-colors focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+                            className="flex w-full items-center justify-center rounded-lg bg-[#0d4a36] py-3 font-semibold text-white transition-colors hover:bg-[#0a3a2b] focus:outline-none focus:ring-2 focus:ring-[#ef9d32] focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                         >
                             {isLoading ? (
                                 <>
