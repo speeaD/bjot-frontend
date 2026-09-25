@@ -2,6 +2,7 @@ import Image from "next/image";
 
 type BrandLogoProps = {
   size?: "small" | "medium" | "large";
+  variant?: "light" | "dark";
 };
 
 const sizes = {
@@ -10,16 +11,17 @@ const sizes = {
   large: { frame: "h-20 w-20", image: "h-[228px] w-[228px]" },
 };
 
-export default function BrandLogo({ size = "medium" }: BrandLogoProps) {
+export default function BrandLogo({ size = "medium", variant = "light" }: BrandLogoProps) {
   const { frame, image } = sizes[size];
 
   return (
-    <span className={`relative block shrink-0 overflow-hidden rounded-xl bg-white ${frame}`}>
+    <span className={`relative block shrink-0 overflow-hidden ${frame}`}>
       <Image
-        src="/bjot-logo.png"
+        src={variant === "dark" ? "/bjot-logo-alt.png" : "/bjot-logo.png"}
         alt="BJOT logo"
         width={1181}
         height={1181}
+        unoptimized
         className={`absolute left-1/2 top-1/2 max-w-none -translate-x-1/2 -translate-y-1/2 ${image}`}
         priority={size === "large"}
       />
