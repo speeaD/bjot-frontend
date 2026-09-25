@@ -6,6 +6,10 @@ The staff and testimonial editors at `/cms` support public image and video uploa
 
 The upload endpoint checks the signed-in admin against the backend before issuing a short-lived upload token. Staff and student photos accept JPG, PNG, or WebP up to 5 MB; testimonial videos accept MP4 or WebM up to 100 MB. Once an upload completes, save its CMS record to publish the URL. Existing hosted media URLs can also be entered directly. All uploaded media is public, so do not use this feature for private student data.
 
+## Topic test links
+
+Admins create topic tests from a subject's Topics screen by selecting questions. Set `NEXT_PUBLIC_STUDENT_SITE_URL` to the student site's origin to prefill the link field, or enter the origin in the topic test dialog. The browser remembers a manually entered origin. Apply the backend `add_topic_tests` Prisma migration before using this feature.
+
 ## Getting Started
 
 First, run the development server:
