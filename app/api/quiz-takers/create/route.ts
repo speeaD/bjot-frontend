@@ -20,14 +20,16 @@ export async function POST(request: NextRequest) {
     const { email, name, questionSetCombination } = body;
 
     // Validation
-    if (!email) {
+    if (typeof email !== 'string' || !email.trim()) {
       return NextResponse.json(
         { success: false, message: 'Email is required' },
         { status: 400 }
       );
     }
 
-    if (!questionSetCombination || !Array.isArray(questionSetCombination) || questionSetCombination.length !== 4) {
+    if (!Array.isArray(questionSetCombination) || questionSetCombination.length !== 4 ||
+      questionSetCombination.some((id: unknown) => typeof id !== 'string' || !id) ||
+      new Set(questionSetCombination).size !== 4) {
       return NextResponse.json(
         { success: false, message: 'Please provide exactly 4 question sets' },
         { status: 400 }
@@ -42,9 +44,10 @@ export async function POST(request: NextRequest) {
         'Authorization': `Bearer ${token}`,
       },
       body: JSON.stringify({
-        email,
-        name: name || undefined,
-        questionSetCombination,
+        email: email.trim(),
+        name: typeof name === 'string' ? name.trim() || undefined : undefined,
+        accountType: 'premium',
+        questionSetIds: questionSetCombination,
       }),
     });
 
