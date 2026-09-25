@@ -12,8 +12,12 @@ const poppins = Poppins({
 });
 
 export const metadata: Metadata = {
-  title: "BJOT ADMIN",
-  description: "Admin dashboard for BJOT application",
+  title: "BJOT Admin Portal",
+  description: "Manage BJOT exams, question banks, students, attendance, and analytics.",
+  icons: {
+    icon: "/bjot-logo.png",
+    apple: "/bjot-logo.png",
+  },
 };
 
 export default async function RootLayout({

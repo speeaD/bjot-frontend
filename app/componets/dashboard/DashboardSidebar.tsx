@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import BrandLogo from "../BrandLogo";
 import {
   FileText,
   BookOpen,
@@ -13,7 +14,6 @@ import {
   KeyRound,
   Settings,
   LogOut,
-  GraduationCap,
   PanelsTopLeft,
 } from "lucide-react";
 
@@ -37,9 +37,7 @@ export default function DashboardSidebar({ onNavigate }: { onNavigate?: () => vo
     <aside className="flex h-screen w-[272px] max-w-full shrink-0 flex-col overflow-y-auto bg-[#0d2818] text-white">
       {/* Logo */}
       <div className="flex items-center gap-3 px-5 pt-5 pb-4">
-        <div className="w-10 h-10 rounded-lg bg-[#a85a00] flex items-center justify-center shrink-0 shadow-sm">
-          <GraduationCap className="h-5 w-5 text-white" />
-        </div>
+        <BrandLogo />
         <div className="leading-tight">
           <p className="text-[15px] font-bold tracking-wide">BJOT</p>
           <p className="mt-0.5 text-[9px] font-semibold tracking-[.11em] text-white/60">ADMIN PORTAL</p>

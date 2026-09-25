@@ -6,6 +6,7 @@ import { Menu, X } from 'lucide-react';
 import DashboardSidebar from './DashboardSidebar';
 import DashboardPageHero, { getDashboardPageDetails } from './DashboardPageHero';
 import ConditionalNavbar from '../ConditionalNavbar';
+import BrandLogo from '../BrandLogo';
 
 export default function DashboardShell({ children, showHeader = false }: { children: React.ReactNode; showHeader?: boolean }) {
   const pathname = usePathname();
@@ -68,6 +69,7 @@ export default function DashboardShell({ children, showHeader = false }: { child
           >
             <Menu className="h-5 w-5" />
           </button>
+          <BrandLogo size="small" />
           <span className="text-sm font-bold text-[#0d2818]">BJOT ADMIN</span>
         </div>
         {showHeader && <ConditionalNavbar />}

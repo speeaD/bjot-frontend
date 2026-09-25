@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Eye, EyeOff, Lock, Mail, Loader2 } from "lucide-react";
+import BrandLogo from "../componets/BrandLogo";
 
 export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
@@ -111,8 +112,8 @@ export default function Login() {
     <div className="flex min-h-screen items-center justify-center bg-[radial-gradient(circle_at_15%_15%,#e6f2eb_0%,#f5f8f6_42%,#eff3f0_100%)] p-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <div className="mx-auto mb-4 grid h-12 w-12 place-items-center rounded-xl bg-[#0d2818] text-lg font-bold text-white shadow-sm">
-            B
+          <div className="mb-4 flex justify-center">
+            <BrandLogo size="large" />
           </div>
           
           <h1 className="mb-2 text-3xl font-bold text-[#0d2818]">
