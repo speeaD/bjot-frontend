@@ -2,12 +2,14 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import DashboardContentLoading from "../componets/dashboard/DashboardContentLoading";
 import {
   BookOpen,
   Download,
   Eye,
   FileText,
   Layers3,
+  ListChecks,
   Search,
   ShieldCheck,
   SlidersHorizontal,
@@ -176,6 +178,7 @@ export default function ManageQuestionSets() {
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
+            <Link href="/question-organizer" className="inline-flex items-center gap-2 rounded-lg bg-[#e5eee7] px-4 py-2.5 text-xs font-semibold text-[#174a34] shadow-sm"><ListChecks className="h-4 w-4" /> Organize pasted questions</Link>
             <button
               onClick={() =>
                 window.open("/api/questionset/template/download", "_blank")
@@ -195,7 +198,7 @@ export default function ManageQuestionSets() {
         <section className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
           <Stat
             label="Total active disciplines"
-            value={questionSets
+            value={loading ? "—" : questionSets
               .filter((item) => item.isActive)
               .length.toString()}
             noun="Subjects"
@@ -204,14 +207,14 @@ export default function ManageQuestionSets() {
           />
           <Stat
             label="Total question pool"
-            value={totalQuestions.toLocaleString()}
+            value={loading ? "—" : totalQuestions.toLocaleString()}
             noun="Questions"
             icon={<FileText />}
             tone="orange"
           />
           <Stat
             label="Topic-based banks"
-            value={questionSets.length.toString()}
+            value={loading ? "—" : questionSets.length.toString()}
             noun="Subject banks"
             icon={<Layers3 />}
             tone="mint"
@@ -270,7 +273,7 @@ export default function ManageQuestionSets() {
                 }
               >
                 {group} (
-                {group === "All disciplines"
+                {loading ? "—" : group === "All disciplines"
                   ? questionSets.length
                   : questionSets.filter((item) => faculty(item.title) === group)
                       .length}
@@ -280,7 +283,7 @@ export default function ManageQuestionSets() {
           </div>
         </section>
         {loading ? (
-          <Loading />
+          <DashboardContentLoading label="Loading subjects" cards={6} />
         ) : (
           <section className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
             {subjects.map((subject) => (
@@ -504,17 +507,5 @@ function Stat({
         ↑ Current academic cycle
       </p>
     </article>
-  );
-}
-function Loading() {
-  return (
-    <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-      {[1, 2, 3, 4, 5, 6].map((item) => (
-        <div
-          key={item}
-          className="h-64 animate-pulse rounded-xl bg-slate-200"
-        />
-      ))}
-    </div>
   );
 }

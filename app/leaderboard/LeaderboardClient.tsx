@@ -3,6 +3,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import DashboardTableLoading from "../componets/dashboard/DashboardTableLoading";
+import DashboardContentLoading from "../componets/dashboard/DashboardContentLoading";
 import {
   Award,
   ChevronUp,
@@ -282,7 +283,7 @@ export default function LeaderboardClient() {
         </section>
 
         {loading ? (
-          <div aria-hidden="true" className="h-80 motion-safe:animate-pulse rounded-xl bg-slate-200" />
+          <DashboardContentLoading label="Loading top candidates" />
         ) : entries.length >= 3 ? (
           <Podium entries={entries.slice(0, 3)} subject={subject} />
         ) : (

@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import DashboardContentLoading from './dashboard/DashboardContentLoading';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { BarChart3, BookOpen, CalendarDays, Clock3, FileText, Plus, RefreshCw, Search, Trash2 } from 'lucide-react';
 import DashboardHeader from './dashboard/DashboardHeader';
@@ -129,7 +130,7 @@ export default function HomeClient() {
         <div className="flex gap-2"><label className="relative lg:hidden"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search exams..." className="w-full rounded-lg border border-gray-200 bg-white py-2 pl-9 pr-3 text-sm" /></label><button type="button" onClick={() => { refreshDrafts(); void refreshExams(); }} disabled={loading} className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50"><RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} /> Refresh</button></div>
       </div>
 
-      {loading && <p className="rounded-xl border border-gray-200 bg-white p-8 text-center text-sm text-gray-500">Loading created exams…</p>}
+      {loading && <DashboardContentLoading label="Loading created exams" />}
 
       {!loading && shownExams.length + shownDrafts.length === 0 && <div className="rounded-xl border border-gray-200 bg-white px-6 py-16 text-center"><FileText className="mx-auto mb-3 h-9 w-9 text-[#0d4a36]" /><h2 className="font-semibold text-gray-900">{term ? 'No matching exams' : tab === 'drafts' ? 'No saved drafts yet' : 'No exams in this view'}</h2><p className="mt-1 text-sm text-gray-500">{term ? 'Try another search term.' : tab === 'drafts' ? 'Save an unfinished exam in the builder to continue it later.' : 'Create an exam to get started.'}</p></div>}
 

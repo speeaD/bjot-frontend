@@ -3,6 +3,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import DashboardContentLoading from "./dashboard/DashboardContentLoading";
 import {
   Activity,
   CalendarDays,
@@ -260,7 +261,7 @@ export default function DailyDashboardClient({
         <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_290px]">
           <div className="space-y-4">
             {loading ? (
-              <Loading />
+              <DashboardContentLoading label="Loading attendance sessions" layout="stack" />
             ) : (
               departments.map((department) => (
                 <DepartmentPanel
@@ -526,17 +527,5 @@ function SessionRow({
         )}
       </div>
     </article>
-  );
-}
-function Loading() {
-  return (
-    <div className="space-y-4">
-      {[1, 2, 3].map((item) => (
-        <div
-          key={item}
-          className="h-32 animate-pulse rounded-xl bg-slate-200"
-        />
-      ))}
-    </div>
   );
 }

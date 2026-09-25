@@ -1,6 +1,7 @@
 'use client';
 
 import { Plus, RefreshCw, Trash2 } from 'lucide-react';
+import DashboardContentLoading from './dashboard/DashboardContentLoading';
 
 export interface Topic {
   id: string;
@@ -67,7 +68,7 @@ export default function QuestionSetsSelector({
         Select one or more topics and how many questions to draw from each. Questions are sampled by the server when the exam is created. Subjects without topics are shown as legacy banks and can still be used unchanged.
       </div>
 
-      {isLoading ? <div className="py-10 text-center text-gray-600">Loading subjects…</div> : (
+      {isLoading ? <DashboardContentLoading label="Loading subjects" cards={1} layout="stack" /> : (
         <div className={`grid gap-6 ${examType === 'single-subject' ? 'max-w-2xl grid-cols-1' : 'grid-cols-1 md:grid-cols-2'}`}>
           {selections.map((selection, index) => {
             const selectedSet = getSet(selection.questionSetId);

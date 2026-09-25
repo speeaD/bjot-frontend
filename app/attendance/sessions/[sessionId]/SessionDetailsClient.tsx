@@ -3,6 +3,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import DashboardTableLoading from '../../../componets/dashboard/DashboardTableLoading';
 import { adminApi } from '../../../lib/api/attendance-client';
 import { SessionAttendanceData, AttendanceRecord, Student } from '../../../types/global';
 import {
@@ -204,9 +205,7 @@ export default function SessionDetailsClient({
 
       {/* Attendance List */}
       {isLoading ? (
-        <div className="flex items-center justify-center py-12">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-        </div>
+        <div className="rounded-xl border border-[#e5ebe8] bg-white"><DashboardTableLoading label="Loading session attendance" /></div>
       ) : (
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
           <div className="overflow-x-auto">

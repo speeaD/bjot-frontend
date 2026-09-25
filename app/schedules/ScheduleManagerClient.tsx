@@ -1,7 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
+import DashboardContentLoading from '../componets/dashboard/DashboardContentLoading';
 import { adminApi } from '../lib/api/attendance-client';
 import { Schedule, Department, ClassSession } from '../types/global';
 import { getDayName, formatTime } from '../lib/utils/attendance-utils';
@@ -46,36 +47,20 @@ export default function ScheduleManagerClient({
   // Derive schedule from allSchedules - SINGLE SOURCE OF TRUTH
   const schedule = allSchedules.find(s => s.department === selectedDepartment) || null;
 
-  const loadSchedule = useCallback(async () => {
+  const loadSchedules = async () => {
     setIsLoading(true);
     setError('');
     try {
-      const response = await adminApi.getDepartmentSchedule(selectedDepartment);
-
-      console.log('Fetched schedule for', selectedDepartment, ':', response);
-      const newSchedule = response.data || null;
-      
-      if (newSchedule) {
-        // Update allSchedules with the new schedule
-        setAllSchedules(prev => {
-          const filtered = prev.filter(s => s.department !== selectedDepartment);
-          return [...filtered, newSchedule];
-        });
-      } else {
-        // Remove from allSchedules if no schedule exists
-        setAllSchedules(prev => prev.filter(s => s.department !== selectedDepartment));
-      }
+      setAllSchedules(await adminApi.getAllSchedules());
     } catch (err: any) {
       setError(err.message || 'Failed to load schedule');
     } finally {
       setIsLoading(false);
     }
-  }, [selectedDepartment]);
+  };
 
-  // Load schedule when department changes
-  useEffect(() => {
-    loadSchedule();
-  }, [selectedDepartment, loadSchedule]);
+  // The server already supplied every department. Switching tabs uses that
+  // snapshot; explicit refresh and successful saves update it.
 
   useEffect(() => {
     loadQuestionSets();
@@ -179,7 +164,7 @@ export default function ScheduleManagerClient({
     setSuccessMessage('');
 
     try {
-      await adminApi.createOrUpdateSchedule({
+      const savedSchedule = await adminApi.createOrUpdateSchedule({
         department: selectedDepartment,
         weeklySchedule: schedule.weeklySchedule.map(cls => ({
           dayOfWeek: cls.dayOfWeek,
@@ -192,7 +177,10 @@ export default function ScheduleManagerClient({
       });
 
       setSuccessMessage('Schedule saved successfully!');
-      await loadSchedule(); // Reload to get fresh data from server
+      setAllSchedules(previous => [
+        ...previous.filter(item => item.department !== savedSchedule.department),
+        savedSchedule,
+      ]);
       setTimeout(() => setSuccessMessage(''), 3000); // Clear message after 3 seconds
     } catch (err: any) {
       setError(err.message || 'Failed to save schedule');
@@ -224,6 +212,9 @@ export default function ScheduleManagerClient({
         <div className="mb-8">
           <h2 className="mb-2 text-xl font-bold text-[#0d2818]">Weekly Schedules</h2>
           <p className="text-gray-600">Manage weekly class schedules for each department</p>
+          <button type="button" onClick={() => void loadSchedules()} disabled={isLoading || isSaving} className="mt-3 rounded-lg border border-[#dce7e1] bg-white px-3 py-2 text-sm font-semibold text-[#0d4a36] disabled:opacity-50">
+            {isLoading ? 'Refreshing…' : 'Refresh schedules'}
+          </button>
         </div>
 
         {/* Department Tabs */}
@@ -259,9 +250,7 @@ export default function ScheduleManagerClient({
         )}
 
         {isLoading ? (
-          <div className="flex items-center justify-center py-12">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-          </div>
+          <DashboardContentLoading label="Loading class schedules" />
         ) : (
           <>
             {/* Weekly Schedule Grid */}

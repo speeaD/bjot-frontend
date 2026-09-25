@@ -16,7 +16,7 @@ export default function DashboardShell({ children, showHeader = false }: { child
   const pageDetails = getDashboardPageDetails(pathname);
   // These operational dashboards supply their own compact, task-specific
   // headings and controls, so the generic hero would repeat the page title.
-  const usesInlineDashboardHeader = ["/attendance", "/analytics", "/leaderboard", "/question-set", "/cms"].includes(pathname) || pathname.startsWith("/question-set/");
+  const usesInlineDashboardHeader = ["/attendance", "/analytics", "/leaderboard", "/question-set", "/question-organizer", "/cms"].includes(pathname) || pathname.startsWith("/question-set/");
 
   useEffect(() => {
     if (!sidebarOpen) return;

@@ -2,6 +2,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import DashboardTableLoading from '../../../componets/dashboard/DashboardTableLoading';
 import { Plus, Edit2, Trash2, Eye, EyeOff, AlertCircle } from 'lucide-react';
 
 interface Batch {
@@ -170,10 +171,7 @@ export default function BatchManager({
       </div>
 
       {isLoading ? (
-        <div className="text-center py-12">
-          <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-gray-300 border-t-blue-600"></div>
-          <p className="mt-2 text-gray-600">Loading batches...</p>
-        </div>
+        <DashboardTableLoading label="Loading batches" />
       ) : batches.length === 0 ? (
         <div className="text-center py-12 bg-gray-50 rounded-lg">
           <p className="text-gray-600">No batches found</p>

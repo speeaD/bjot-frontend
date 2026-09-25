@@ -3,6 +3,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import DashboardContentLoading from "../../../componets/dashboard/DashboardContentLoading";
 import Image from "next/image";
 import { 
   ArrowLeft, 
@@ -287,18 +288,7 @@ export default function ExamEditPage({ params }: { params: Promise<{ id: string 
     }
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading exam...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (!exam) {
+  if (!exam && !loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
@@ -345,7 +335,7 @@ export default function ExamEditPage({ params }: { params: Promise<{ id: string 
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-6">
+        {loading ? <DashboardContentLoading label="Loading exam configuration" cards={2} layout="stack" /> : <form onSubmit={handleSubmit} className="space-y-6">
           {/* Basic Settings */}
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
             <h2 className="text-xl font-bold text-gray-900 mb-4">Basic Information</h2>
@@ -690,7 +680,7 @@ export default function ExamEditPage({ params }: { params: Promise<{ id: string 
               )}
             </button>
           </div>
-        </form>
+        </form>}
       </div>
     </div>
   );

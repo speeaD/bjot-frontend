@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import DashboardContentLoading from "../componets/dashboard/DashboardContentLoading";
 import { CalendarDays, Clock3, FileText, Plus, RefreshCw, UsersRound } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 
@@ -84,9 +85,7 @@ export default function Explore() {
       {error && <div className="mb-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{error}</div>}
 
       {loading ? (
-        <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {[0, 1, 2].map((item) => <div key={item} className="h-56 animate-pulse rounded-xl bg-slate-100" />)}
-        </section>
+        <DashboardContentLoading label="Loading exam library" />
       ) : exams.length === 0 ? (
         <section className="flex min-h-[380px] flex-col items-center justify-center rounded-xl border border-[#e5ebe8] bg-white px-6 py-12 text-center shadow-sm">
           <div className="mb-5 grid h-16 w-16 place-items-center rounded-2xl bg-[#eaf4ee] text-[#0d6449]"><FileText className="h-8 w-8" /></div>

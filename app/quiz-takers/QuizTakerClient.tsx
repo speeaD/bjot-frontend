@@ -21,7 +21,6 @@ import {
   Copy,
   BadgeCheck,
 } from "lucide-react";
-import { useRouter } from "next/navigation";
 import DashboardHeader from "../componets/dashboard/DashboardHeader";
 import DashboardTableLoading from "../componets/dashboard/DashboardTableLoading";
 
@@ -63,7 +62,6 @@ interface BulkUploadResult {
 }
 
 export default function QuizTakersClient() {
-  const router = useRouter();
 
   // UI States
   const [searchTerm, setSearchTerm] = useState("");
@@ -513,7 +511,6 @@ export default function QuizTakersClient() {
       alert(
         `Premium quiz taker created successfully! Access Code: ${data.quizTaker.accessCode}`,
       );
-      router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to create student");
       alert(err instanceof Error ? err.message : "Failed to create student");
@@ -537,7 +534,6 @@ export default function QuizTakersClient() {
       setQuizTakers((prev) => prev.filter((t) => t._id !== id));
       setSelectedTakers((prev) => prev.filter((t) => t !== id));
       alert("Student deleted successfully");
-      router.refresh();
     } catch (err) {
       alert(err instanceof Error ? err.message : "Failed to delete student");
     }
@@ -560,7 +556,6 @@ export default function QuizTakersClient() {
       );
       setSelectedTakers([]);
       alert("Students deleted successfully");
-      router.refresh();
     } catch (err) {
       alert(err instanceof Error ? err.message : "Failed to delete students");
     }
@@ -587,7 +582,6 @@ export default function QuizTakersClient() {
       setShowImportModal(false);
       setImportFile(null);
       await refreshQuizTakers();
-      router.refresh();
     } catch (err) {
       alert(err instanceof Error ? err.message : "Failed to upload file");
     } finally {
@@ -615,7 +609,6 @@ export default function QuizTakersClient() {
       setShowAssignModal(false);
       setSelectedQuizId("");
       await refreshQuizTakers();
-      router.refresh();
     } catch (err) {
       alert(err instanceof Error ? err.message : "Failed to assign exam");
     } finally {
@@ -643,7 +636,6 @@ export default function QuizTakersClient() {
       setShowUnassignModal(false);
       setSelectedUnassignQuizId("");
       await refreshQuizTakers();
-      router.refresh();
     } catch (err) {
       alert(err instanceof Error ? err.message : "Failed to unassign exam");
     } finally {
@@ -688,7 +680,6 @@ export default function QuizTakersClient() {
           t._id === id ? { ...t, isActive: !currentActive } : t,
         ),
       );
-      router.refresh();
     } catch (err) {
       alert(err instanceof Error ? err.message : "Failed to update status");
     }

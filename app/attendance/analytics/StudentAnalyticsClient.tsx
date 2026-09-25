@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import DashboardTableLoading from '../../componets/dashboard/DashboardTableLoading';
 import { Department } from '../../types/global';
 import { formatShortDate, getDepartmentColor } from '../../lib/utils/attendance-utils';
 
@@ -439,9 +440,7 @@ export default function StudentAnalyticsClient({
 
           {/* Students Table */}
           {isLoading ? (
-            <div className="flex items-center justify-center py-12">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-            </div>
+            <div className="rounded-xl border border-[#e5ebe8] bg-white"><DashboardTableLoading label="Loading student attendance" /></div>
           ) : filteredStudents.length === 0 ? (
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-12 text-center">
               <svg className="w-16 h-16 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

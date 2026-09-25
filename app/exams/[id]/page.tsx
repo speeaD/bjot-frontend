@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { Suspense } from "react";
 import Link from "next/link";
+import DashboardContentLoading from "../../componets/dashboard/DashboardContentLoading";
 import Image from "next/image";
 import { 
   ArrowLeft, 
@@ -84,32 +85,6 @@ interface Exam {
 //   const data = await res.json();
 //   return data.quiz;
 // }
-
-// Loading skeleton for the page
-function ExamDetailSkeleton() {
-  return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6">
-        <div className="h-10 bg-gray-200 rounded w-32 mb-6 animate-pulse" />
-        
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
-          <div className="h-8 bg-gray-200 rounded w-2/3 mb-4 animate-pulse" />
-          <div className="h-4 bg-gray-200 rounded w-full mb-2 animate-pulse" />
-          <div className="h-4 bg-gray-200 rounded w-3/4 animate-pulse" />
-        </div>
-        
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-          <div className="h-6 bg-gray-200 rounded w-48 mb-4 animate-pulse" />
-          <div className="space-y-3">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="h-20 bg-gray-100 rounded animate-pulse" />
-            ))}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 // Import client component for actions
 import ExamActions from "./ExamActions";
@@ -244,16 +219,7 @@ async function ExamContent({ id }: { id: string }) {
   );
 
   return (
-    <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6">
-      {/* Back button */}
-      <Link 
-        href="/" 
-        className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-6 font-medium"
-      >
-        <ArrowLeft className="w-4 h-4" />
-        Back to Exams
-      </Link>
-
+    <div>
       {/* Exam Header */}
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
         <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4 mb-6">
@@ -443,9 +409,15 @@ export default async function ExamDetailPage({
   const { id } = await params;
   return (
     <div className="min-h-screen bg-gray-50">
-    <Suspense fallback={<ExamDetailSkeleton />}>
-      <ExamContent id={id} />
-    </Suspense>
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6">
+        <header className="mb-6 flex flex-wrap items-center justify-between gap-3">
+          <Link href="/" className="inline-flex items-center gap-2 font-medium text-gray-600 hover:text-gray-900"><ArrowLeft className="h-4 w-4" /> Back to Exams</Link>
+          <h1 className="text-xl font-bold text-[#0d2818]">Exam details</h1>
+        </header>
+        <Suspense fallback={<DashboardContentLoading label="Loading exam details" cards={2} layout="stack" />}>
+          <ExamContent id={id} />
+        </Suspense>
+      </div>
     </div>
   );
 }

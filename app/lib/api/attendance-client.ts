@@ -1,7 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import {
+import type {
   ApiResponse,
-  AttendanceSession,
   CreateScheduleForm,
   Department,
   OpenWindowForm,
@@ -57,28 +56,25 @@ export const adminApi = {
     }
 
     const data = await res.json();
-    return data;
+    return data.data as Schedule;
   },
 
   async getAllSchedules() {
     const data = await fetch(`/api/attendance/schedules`);
+    const payload = await data.json();
     if (!data.ok) {
-      throw new Error("Failed to fetch all schedules");
+      throw new Error(payload.message || "Failed to fetch all schedules");
     }
-    const shchedulesData: Schedule = await data.json();
-    return shchedulesData;
+    return payload.data as Schedule[];
   },
 
   async getDepartmentSchedule(department: Department) {
     const res = await fetch(`/api/attendance/schedules/${department}`);
-    if (!res.ok) {
-      throw new Error("Failed to fetch department schedule");
-    }
-
     const departmentSchedule = await res.json();
-    console.log(`Fetched schedule for ${department}:`, departmentSchedule);
-    const schedule = departmentSchedule.data;
-    return schedule;
+    if (!res.ok) {
+      throw new Error(departmentSchedule.message || "Failed to fetch department schedule");
+    }
+    return departmentSchedule.data as Schedule | null;
   },
 
   async addScheduleOverride(overrideData: {
