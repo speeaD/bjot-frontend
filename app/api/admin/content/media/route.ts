@@ -27,9 +27,9 @@ export async function POST(request: NextRequest) {
       body,
       request,
       onBeforeGenerateToken: async (pathname) => {
-        const safePath = /^cms\/(?:staff|testimonials\/(?:images|videos))\/[a-zA-Z0-9._-]+$/.test(pathname) && !pathname.includes("..");
+        const safePath = /^cms\/(?:staff|testimonials\/(?:images|videos)|study-hub\/images)\/[a-zA-Z0-9._-]+$/.test(pathname) && !pathname.includes("..");
         if (!safePath) throw new Error("Unsupported media destination");
-        const isImage = pathname.startsWith("cms/staff/") || pathname.startsWith("cms/testimonials/images/");
+        const isImage = pathname.startsWith("cms/staff/") || pathname.startsWith("cms/testimonials/images/") || pathname.startsWith("cms/study-hub/images/");
         const isVideo = pathname.startsWith("cms/testimonials/videos/");
         if (!isImage && !isVideo) throw new Error("Unsupported media destination");
         return {
