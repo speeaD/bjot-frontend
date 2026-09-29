@@ -78,18 +78,21 @@ export default function PeopleContentManager({ staff, testimonials, onRefresh }:
     const max = video ? 100 * 1024 * 1024 : 5 * 1024 * 1024;
     if (!types.includes(file.type) || file.size > max) { setError(`Choose a ${video ? "MP4 or WebM video under 100 MB" : "JPG, PNG, or WebP image under 5 MB"}.`); return; }
     setUploading(target); setProgress(0); setError(null); setNotice(null);
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), video ? 5 * 60_000 : 90_000);
     try {
       const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "-");
       const folder = target === "staff" ? "cms/staff" : video ? "cms/testimonials/videos" : "cms/testimonials/images";
       const blob = await upload(`${folder}/${safeName}`, file, {
         access: "public", handleUploadUrl: "/api/admin/content/media", contentType: file.type,
-        multipart: video, onUploadProgress: ({ percentage }) => setProgress(Math.round(percentage)),
+        multipart: video, abortSignal: controller.signal,
+        onUploadProgress: ({ percentage }) => setProgress(Math.round(percentage)),
       });
       if (target === "staff") setStaffForm((form) => ({ ...form, imageUrl: blob.url }));
       else setTestimonialForm((form) => ({ ...form, [video ? "videoUrl" : "imageUrl"]: blob.url }));
       setNotice("Upload complete. Save the record to publish this media.");
-    } catch (cause) { setError(cause instanceof Error ? cause.message : "Upload failed. Check the Blob store configuration."); }
-    finally { setUploading(null); }
+    } catch (cause) { setError(controller.signal.aborted ? "Upload timed out. Check your connection and retry." : cause instanceof Error ? cause.message : "Upload failed. Check the Blob store configuration."); }
+    finally { window.clearTimeout(timeout); setUploading(null); }
   };
 
   return <div className="mt-6 space-y-6">
@@ -107,7 +110,7 @@ export default function PeopleContentManager({ staff, testimonials, onRefresh }:
         <label className="mt-3 block text-xs font-semibold text-slate-600">Bio<textarea className={`${inputClass} min-h-20`} value={staffForm.bio ?? ""} onChange={(event) => setStaffForm((form) => ({ ...form, bio: event.target.value }))} /></label>
         <div className="mt-3 grid gap-3 sm:grid-cols-2"><Field label="Photo URL" value={staffForm.imageUrl ?? ""} type="url" placeholder="https://..." onChange={(imageUrl) => setStaffForm((form) => ({ ...form, imageUrl }))} /><label className="block text-xs font-semibold text-slate-600">Or upload photo<input className={inputClass} type="file" accept="image/jpeg,image/png,image/webp" disabled={!!uploading} onChange={(event) => { const file = event.target.files?.[0]; if (file) void uploadMedia(file, "staff"); event.target.value = ""; }} /></label></div>
         <label className="mt-3 flex items-center gap-2 text-xs font-semibold text-slate-600"><input type="checkbox" checked={staffForm.isVisible} onChange={(event) => setStaffForm((form) => ({ ...form, isVisible: event.target.checked }))} /> Visible on landing page</label>
-        <div className="mt-4 flex items-center gap-3"><button type="submit" disabled={saving || !!uploading} className="rounded-lg bg-[#004b37] px-4 py-2 text-xs font-semibold text-white disabled:opacity-50">{saving ? "Saving..." : staffId ? "Save staff changes" : "Add staff member"}</button>{staffId && <button type="button" className={buttonClass} onClick={() => startStaff()}>Cancel editing</button>}{uploading === "staff" && <span className="text-xs text-slate-500">Uploading {progress}%</span>}</div>
+        <div className="mt-4 flex items-center gap-3"><button type="submit" disabled={saving || !!uploading} className="rounded-lg bg-[#004b37] px-4 py-2 text-xs font-semibold text-white disabled:opacity-50">{saving ? "Saving..." : staffId ? "Save staff changes" : "Add staff member"}</button>{staffId && <button type="button" className={buttonClass} onClick={() => startStaff()}>Cancel editing</button>}{uploading === "staff" && <span className="text-xs text-slate-500">{progress ? `Uploading ${progress}%` : "Preparing upload…"}</span>}</div>
       </form>
     </section>
     <section className="rounded-xl border border-[#e5ebe8] bg-white p-5 shadow-sm">
@@ -120,7 +123,7 @@ export default function PeopleContentManager({ staff, testimonials, onRefresh }:
         <div className="mt-3 grid gap-3 sm:grid-cols-2"><Field label="Student photo URL" value={testimonialForm.imageUrl ?? ""} type="url" placeholder="https://..." onChange={(imageUrl) => setTestimonialForm((form) => ({ ...form, imageUrl }))} /><label className="block text-xs font-semibold text-slate-600">Or upload photo<input className={inputClass} type="file" accept="image/jpeg,image/png,image/webp" disabled={!!uploading} onChange={(event) => { const file = event.target.files?.[0]; if (file) void uploadMedia(file, "student"); event.target.value = ""; }} /></label></div>
         {testimonialForm.type === "video" && <div className="mt-3 grid gap-3 sm:grid-cols-2"><Field label="Video URL" value={testimonialForm.videoUrl ?? ""} type="url" placeholder="https://..." onChange={(videoUrl) => setTestimonialForm((form) => ({ ...form, videoUrl }))} /><label className="block text-xs font-semibold text-slate-600">Or upload video<input className={inputClass} type="file" accept="video/mp4,video/webm" disabled={!!uploading} onChange={(event) => { const file = event.target.files?.[0]; if (file) void uploadMedia(file, "video"); event.target.value = ""; }} /></label><Field label="Duration label" value={testimonialForm.videoDuration ?? ""} placeholder="2:30" onChange={(videoDuration) => setTestimonialForm((form) => ({ ...form, videoDuration }))} /></div>}
         <div className="mt-3 flex flex-wrap gap-4"><label className="flex items-center gap-2 text-xs font-semibold text-slate-600"><input type="checkbox" checked={testimonialForm.isVerified} onChange={(event) => setTestimonialForm((form) => ({ ...form, isVerified: event.target.checked }))} /> Verified</label><label className="flex items-center gap-2 text-xs font-semibold text-slate-600"><input type="checkbox" checked={testimonialForm.isVisible} onChange={(event) => setTestimonialForm((form) => ({ ...form, isVisible: event.target.checked }))} /> Visible on landing page</label></div>
-        <div className="mt-4 flex items-center gap-3"><button type="submit" disabled={saving || !!uploading} className="rounded-lg bg-[#004b37] px-4 py-2 text-xs font-semibold text-white disabled:opacity-50">{saving ? "Saving..." : testimonialId ? "Save testimonial changes" : "Add testimonial"}</button>{testimonialId && <button type="button" className={buttonClass} onClick={() => startTestimonial()}>Cancel editing</button>}{uploading && uploading !== "staff" && <span className="text-xs text-slate-500">Uploading {progress}%</span>}</div>
+        <div className="mt-4 flex items-center gap-3"><button type="submit" disabled={saving || !!uploading} className="rounded-lg bg-[#004b37] px-4 py-2 text-xs font-semibold text-white disabled:opacity-50">{saving ? "Saving..." : testimonialId ? "Save testimonial changes" : "Add testimonial"}</button>{testimonialId && <button type="button" className={buttonClass} onClick={() => startTestimonial()}>Cancel editing</button>}{uploading && uploading !== "staff" && <span className="text-xs text-slate-500">{progress ? `Uploading ${progress}%` : "Preparing upload…"}</span>}</div>
       </form>
     </section>
   </div>;

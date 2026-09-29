@@ -2,9 +2,11 @@ This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-
 
 ## CMS media uploads
 
-The staff and testimonial editors at `/cms` support public image and video uploads through Vercel Blob. Create a Blob store in the Vercel project for this frontend and connect it to the project so Vercel supplies `BLOB_READ_WRITE_TOKEN`. Pull that environment variable into `.env.local` for local development. Never expose the token with a `NEXT_PUBLIC_` prefix.
+The staff and testimonial editors at `/cms` support public image and video uploads through Vercel Blob. Create a **public** Blob store in the Vercel project for this frontend and connect it to the project so Vercel supplies `BLOB_READ_WRITE_TOKEN`. Pull that environment variable into `.env.local` for local development. Never expose the token with a `NEXT_PUBLIC_` prefix.
 
 The upload endpoint checks the signed-in admin against the backend before issuing a short-lived upload token. Staff and student photos accept JPG, PNG, or WebP up to 5 MB; testimonial videos accept MP4 or WebM up to 100 MB. Once an upload completes, save its CMS record to publish the URL. Existing hosted media URLs can also be entered directly. All uploaded media is public, so do not use this feature for private student data.
+
+If an upload remains at 0% and the browser reports a 400 response from `https://vercel.com/api/blob/`, verify that the frontend's **Production** deployment has the `BLOB_READ_WRITE_TOKEN` for its connected Blob store, then redeploy. A browser CORS message on that failed response is a symptom of the rejected upload. The upload endpoint checks the store credential before issuing a client upload token and returns a CMS error when the store cannot be reached with it.
 
 ## Topic test links
 

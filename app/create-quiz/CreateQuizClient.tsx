@@ -1,7 +1,7 @@
 "use client";
 
 import { ArrowLeft } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import QuizSettingsComponent from "../componets/QuizSettings";
 import QuestionSetsSelector, {
@@ -61,6 +61,9 @@ export default function CreateQuizClient({}: CreateQuizClientProps) {
   const [topicsByQuestionSet, setTopicsByQuestionSet] = useState<
     Record<string, Topic[]>
   >({});
+  const [questionsByQuestionSet, setQuestionsByQuestionSet] = useState<
+    Record<string, { id: string; topicId: string | null; question: string; isArchived: boolean }[]>
+  >({});
   const [isLoadingQuestionSets, setIsLoadingQuestionSets] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
@@ -92,7 +95,7 @@ export default function CreateQuizClient({}: CreateQuizClientProps) {
     }
   };
 
-  const fetchTopics = async (questionSetId: string) => {
+  const fetchTopics = useCallback(async (questionSetId: string) => {
     const response = await fetch(`/api/questionset/${questionSetId}/topics`, {
       cache: "no-store",
     });
@@ -109,7 +112,21 @@ export default function CreateQuizClient({}: CreateQuizClientProps) {
       [questionSetId]: topics,
     }));
     return topics;
-  };
+  }, []);
+
+  const fetchQuestions = useCallback(async (questionSetId: string) => {
+    const response = await fetch(`/api/questionset/${questionSetId}`, { cache: "no-store" });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.message || "Failed to load questions");
+    setQuestionsByQuestionSet((current) => ({
+      ...current,
+      [questionSetId]: data.questionSet?.questions || [],
+    }));
+  }, []);
+
+  const loadSubject = useCallback(async (questionSetId: string) => {
+    await Promise.all([fetchTopics(questionSetId), fetchQuestions(questionSetId)]);
+  }, [fetchTopics, fetchQuestions]);
 
   useEffect(() => {
     void fetchQuestionSets();
@@ -143,7 +160,7 @@ export default function CreateQuizClient({}: CreateQuizClientProps) {
             .map((selection) => selection.questionSetId)
             .filter((id): id is string => Boolean(id)),
         ),
-      ].map(fetchTopics),
+      ].map(loadSubject),
     ).catch((reason) =>
       setError(
         reason instanceof Error
@@ -151,7 +168,7 @@ export default function CreateQuizClient({}: CreateQuizClientProps) {
           : "Failed to load draft topics",
       ),
     );
-  }, []);
+  }, [loadSubject]);
 
   const changeExamType = (type: ExamType) => {
     if (type === examType) return;
@@ -205,9 +222,9 @@ export default function CreateQuizClient({}: CreateQuizClientProps) {
     questionSetId: string | null,
   ) => {
     changeSelection(index, () => ({ questionSetId, topicSelections: [] }));
-    if (!questionSetId || topicsByQuestionSet[questionSetId]) return;
+    if (!questionSetId || (topicsByQuestionSet[questionSetId] && questionsByQuestionSet[questionSetId])) return;
     try {
-      await fetchTopics(questionSetId);
+      await loadSubject(questionSetId);
     } catch (reason) {
       setError(
         reason instanceof Error ? reason.message : "Failed to load topics",
@@ -228,19 +245,8 @@ export default function CreateQuizClient({}: CreateQuizClientProps) {
       ...selection,
       topicSelections: selection.topicSelections.map((topic, itemIndex) =>
         itemIndex === topicIndex
-          ? { ...topic, topicId, questionCount: 0 }
+          ? { ...topic, topicId, questionCount: 0, questionIds: [] }
           : topic,
-      ),
-    }));
-  const changeQuestionCount = (
-    index: number,
-    topicIndex: number,
-    questionCount: number,
-  ) =>
-    changeSelection(index, (selection) => ({
-      ...selection,
-      topicSelections: selection.topicSelections.map((topic, itemIndex) =>
-        itemIndex === topicIndex ? { ...topic, questionCount } : topic,
       ),
     }));
   const removeTopic = (index: number, topicIndex: number) =>
@@ -249,6 +255,17 @@ export default function CreateQuizClient({}: CreateQuizClientProps) {
       topicSelections: selection.topicSelections.filter(
         (_, itemIndex) => itemIndex !== topicIndex,
       ),
+    }));
+  const toggleQuestion = (index: number, topicIndex: number, questionId: string) =>
+    changeSelection(index, (selection) => ({
+      ...selection,
+      topicSelections: selection.topicSelections.map((topic, itemIndex) => {
+        if (itemIndex !== topicIndex) return topic;
+        const questionIds = topic.questionIds.includes(questionId)
+          ? topic.questionIds.filter((id) => id !== questionId)
+          : [...topic.questionIds, questionId];
+        return { ...topic, questionIds, questionCount: questionIds.length };
+      }),
     }));
 
   const validationError = useMemo(() => {
@@ -274,18 +291,15 @@ export default function CreateQuizClient({}: CreateQuizClientProps) {
         );
         if (!topic || used.has(choice.topicId))
           return "Choose a different active topic for each topic row.";
-        const available = topic._count?.questions ?? 0;
-        if (
-          !Number.isInteger(choice.questionCount) ||
-          choice.questionCount < 1 ||
-          choice.questionCount > available
-        )
-          return `Choose between 1 and ${available} questions for ${topic.name}.`;
+        const eligible = new Set((questionsByQuestionSet[setId] || []).filter((question) => question.topicId === topic.id && !question.isArchived).map((question) => question.id));
+        const available = eligible.size;
+        if (!choice.questionIds.length || choice.questionIds.length > available || choice.questionIds.some((id) => !eligible.has(id)))
+          return `Review the selected questions for ${topic.name}.`;
         used.add(choice.topicId);
       }
     }
     return "";
-  }, [expectedCount, selections, settings.title, topicsByQuestionSet]);
+  }, [expectedCount, selections, settings.title, topicsByQuestionSet, questionsByQuestionSet]);
 
   const stats = useMemo(
     () =>
@@ -305,7 +319,7 @@ export default function CreateQuizClient({}: CreateQuizClientProps) {
               total.questions +
               (hasTopics
                 ? selection.topicSelections.reduce(
-                    (sum, topic) => sum + (topic.questionCount || 0),
+                    (sum, topic) => sum + topic.questionIds.length,
                     0,
                   )
                 : set?.questionCount || 0),
@@ -332,7 +346,7 @@ export default function CreateQuizClient({}: CreateQuizClientProps) {
         ),
         questionFilters: selections.map((selection) =>
           selection.topicSelections.length
-            ? { topicSelections: selection.topicSelections }
+            ? { topicSelections: selection.topicSelections.map((topic) => ({ ...topic, questionCount: topic.questionIds.length })) }
             : undefined,
         ),
       };
@@ -460,10 +474,11 @@ export default function CreateQuizClient({}: CreateQuizClientProps) {
                 availableQuestionSets={availableQuestionSets}
                 selections={selections}
                 topicsByQuestionSet={topicsByQuestionSet}
+                questionsByQuestionSet={questionsByQuestionSet}
                 onQuestionSetChange={handleQuestionSetChange}
                 onAddTopic={addTopic}
                 onTopicChange={changeTopic}
-                onQuestionCountChange={changeQuestionCount}
+                onQuestionToggle={toggleQuestion}
                 onRemoveTopic={removeTopic}
                 isLoading={isLoadingQuestionSets}
                 onRefresh={fetchQuestionSets}
@@ -478,8 +493,7 @@ export default function CreateQuizClient({}: CreateQuizClientProps) {
             {activeTab === "question-sets" && (
               <div className="mt-6 flex items-center justify-between rounded-lg bg-white p-4 shadow">
                 <div className="text-sm text-gray-600">
-                  Topic-based questions: {stats.questions}. Point total is
-                  calculated from the sampled questions.
+                  Selected questions: {stats.questions}. Point total is calculated from the chosen questions.
                 </div>
                 <button
                   onClick={submit}
