@@ -79,7 +79,7 @@ export default function QuizSettingsComponent({ settings, onSettingsChange } : Q
                     <div>
                         <h3 className="font-semibold text-gray-800 text-lg mb-2">Make exam open?</h3>
                         <p className="text-gray-600">
-                            If you make this exam open, Anybody can participate without login.
+                            Open exams can be taken without login. To appear on the free-mock page, use four subjects with auto-graded questions and enable results.
                         </p>
                     </div>
                     <ToggleSwitch value={settings.isOpenQuiz || false} 
