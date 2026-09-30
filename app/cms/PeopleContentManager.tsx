@@ -3,6 +3,7 @@
 import { upload } from "@vercel/blob/client";
 import Image from "next/image";
 import { useState } from "react";
+import { MAX_CMS_IMAGE_BYTES, uploadCmsImage } from "./uploadImage";
 
 export type StaffMember = {
   id: string; name: string; role: string | null; course: string | null; bio: string | null;
@@ -75,21 +76,24 @@ export default function PeopleContentManager({ staff, testimonials, onRefresh }:
   const uploadMedia = async (file: File, target: "staff" | "student" | "video") => {
     const video = target === "video";
     const types = video ? ["video/mp4", "video/webm"] : ["image/jpeg", "image/png", "image/webp"];
-    const max = video ? 100 * 1024 * 1024 : 5 * 1024 * 1024;
-    if (!types.includes(file.type) || file.size > max) { setError(`Choose a ${video ? "MP4 or WebM video under 100 MB" : "JPG, PNG, or WebP image under 5 MB"}.`); return; }
+    const max = video ? 100 * 1024 * 1024 : MAX_CMS_IMAGE_BYTES;
+    if (!types.includes(file.type) || file.size > max) { setError(`Choose a ${video ? "MP4 or WebM video under 100 MB" : "JPG, PNG, or WebP image under 4 MB"}.`); return; }
     setUploading(target); setProgress(0); setError(null); setNotice(null);
     const controller = new AbortController();
     const timeout = window.setTimeout(() => controller.abort(), video ? 5 * 60_000 : 90_000);
     try {
       const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "-");
       const folder = target === "staff" ? "cms/staff" : video ? "cms/testimonials/videos" : "cms/testimonials/images";
-      const blob = await upload(`${folder}/${safeName}`, file, {
-        access: "public", handleUploadUrl: "/api/admin/content/media", contentType: file.type,
-        multipart: video, abortSignal: controller.signal,
-        onUploadProgress: ({ percentage }) => setProgress(Math.round(percentage)),
-      });
-      if (target === "staff") setStaffForm((form) => ({ ...form, imageUrl: blob.url }));
-      else setTestimonialForm((form) => ({ ...form, [video ? "videoUrl" : "imageUrl"]: blob.url }));
+      const pathname = `${folder}/${safeName}`;
+      const url = video
+        ? (await upload(pathname, file, {
+            access: "public", handleUploadUrl: "/api/admin/content/media", contentType: file.type,
+            multipart: true, abortSignal: controller.signal,
+            onUploadProgress: ({ percentage }) => setProgress(Math.round(percentage)),
+          })).url
+        : await uploadCmsImage(pathname, file, controller.signal);
+      if (target === "staff") setStaffForm((form) => ({ ...form, imageUrl: url }));
+      else setTestimonialForm((form) => ({ ...form, [video ? "videoUrl" : "imageUrl"]: url }));
       setNotice("Upload complete. Save the record to publish this media.");
     } catch (cause) { setError(controller.signal.aborted ? "Upload timed out. Check your connection and retry." : cause instanceof Error ? cause.message : "Upload failed. Check the Blob store configuration."); }
     finally { window.clearTimeout(timeout); setUploading(null); }

@@ -1,6 +1,6 @@
 'use client';
 
-import { upload } from '@vercel/blob/client';
+import { MAX_CMS_IMAGE_BYTES, uploadCmsImage } from '@/app/cms/uploadImage';
 import { useCallback, useEffect, useState } from 'react';
 import { X } from 'lucide-react';
 
@@ -57,12 +57,12 @@ export default function StudyMaterialsDialog({ topic, onClose }: { topic: { id: 
   };
 
   const uploadImage = async (file: File) => {
-    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || file.size > 5 * 1024 * 1024) return setError('Choose a JPG, PNG, or WebP image under 5 MB.');
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || file.size > MAX_CMS_IMAGE_BYTES) return setError('Choose a JPG, PNG, or WebP image under 4 MB.');
     setBusy(true); setError('');
     try {
       const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '-');
-      const blob = await upload(`cms/study-hub/images/${safeName}`, file, { access: 'public', handleUploadUrl: '/api/admin/content/media', contentType: file.type });
-      setDraft((current) => ({ ...current, content: blob.url }));
+      const url = await uploadCmsImage(`cms/study-hub/images/${safeName}`, file);
+      setDraft((current) => ({ ...current, content: url }));
     } catch (reason) { setError(reason instanceof Error ? reason.message : 'Could not upload image'); }
     finally { setBusy(false); }
   };
@@ -78,7 +78,7 @@ export default function StudyMaterialsDialog({ topic, onClose }: { topic: { id: 
           <h3 className="sm:col-span-2 font-bold">{editingId ? 'Edit material' : 'Add material'}</h3>
           <label className="text-sm font-medium">Title<input className={input} required maxLength={255} value={draft.title} onChange={(event) => setDraft({ ...draft, title: event.target.value })} /></label>
           <label className="text-sm font-medium">Type<select className={input} value={draft.type} onChange={(event) => setDraft({ ...draft, type: event.target.value as Draft['type'], content: '' })}><option value="text">Text</option><option value="passage">Passage</option><option value="image">Image</option><option value="youtube">YouTube video</option></select></label>
-          {draft.type === 'text' || draft.type === 'passage' ? <label className="text-sm font-medium sm:col-span-2">Content<textarea className={`${input} min-h-36`} required maxLength={50000} value={draft.content} onChange={(event) => setDraft({ ...draft, content: event.target.value })} /></label> : <label className="text-sm font-medium sm:col-span-2">{draft.type === 'image' ? 'Image URL' : 'YouTube URL'}<input className={input} required type="url" value={draft.content} onChange={(event) => setDraft({ ...draft, content: event.target.value })} />{draft.type === 'image' && <span className="mt-2 block"><input aria-label="Upload image" type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => { const file = event.target.files?.[0]; if (file) void uploadImage(file); }} /><small className="block text-slate-500">Upload a JPG, PNG, or WebP image up to 5 MB.</small></span>}</label>}
+          {draft.type === 'text' || draft.type === 'passage' ? <label className="text-sm font-medium sm:col-span-2">Content<textarea className={`${input} min-h-36`} required maxLength={50000} value={draft.content} onChange={(event) => setDraft({ ...draft, content: event.target.value })} /></label> : <label className="text-sm font-medium sm:col-span-2">{draft.type === 'image' ? 'Image URL' : 'YouTube URL'}<input className={input} required type="url" value={draft.content} onChange={(event) => setDraft({ ...draft, content: event.target.value })} />{draft.type === 'image' && <span className="mt-2 block"><input aria-label="Upload image" type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => { const file = event.target.files?.[0]; if (file) void uploadImage(file); }} /><small className="block text-slate-500">Upload a JPG, PNG, or WebP image up to 4 MB.</small></span>}</label>}
           {draft.type === 'image' && <label className="text-sm font-medium sm:col-span-2">Image description<input className={input} required maxLength={500} value={draft.altText} onChange={(event) => setDraft({ ...draft, altText: event.target.value })} /></label>}
           <label className="text-sm font-medium">Reading order<input className={input} type="number" min="0" max="100000" value={draft.displayOrder} onChange={(event) => setDraft({ ...draft, displayOrder: Number(event.target.value) })} /></label>
           <label className="flex items-center gap-2 self-end text-sm font-medium"><input type="checkbox" checked={draft.isPublished} onChange={(event) => setDraft({ ...draft, isPublished: event.target.checked })} /> Published to students</label>
