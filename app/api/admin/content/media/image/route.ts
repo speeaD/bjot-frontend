@@ -1,4 +1,4 @@
-import { put } from "@vercel/blob";
+import { BlobAccessError, BlobContentTypeNotAllowedError, BlobStoreNotFoundError, BlobStoreSuspendedError, put } from "@vercel/blob";
 import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -25,16 +25,22 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ message: "Choose an image under 4 MB." }, { status: 413 });
   }
 
+  let verification: Response;
   try {
-    const verification = await fetch(`${backendUrl}/admin/content`, {
+    verification = await fetch(`${backendUrl}/admin/content`, {
       headers: { Authorization: `Bearer ${token}` },
       cache: "no-store",
       signal: AbortSignal.timeout(10000),
     });
-    if (!verification.ok) {
-      return NextResponse.json({ message: verification.status === 401 || verification.status === 403 ? "Your admin session has expired. Sign in again." : "Admin verification is unavailable. Please retry the upload." }, { status: verification.status === 401 || verification.status === 403 ? 401 : 503 });
-    }
+  } catch (error) {
+    console.error("CMS admin verification failed:", error);
+    return NextResponse.json({ message: "Admin verification is unavailable. Please retry the upload." }, { status: 503 });
+  }
+  if (!verification.ok) {
+    return NextResponse.json({ message: verification.status === 401 || verification.status === 403 ? "Your admin session has expired. Sign in again." : "Admin verification is unavailable. Please retry the upload." }, { status: verification.status === 401 || verification.status === 403 ? 401 : 503 });
+  }
 
+  try {
     const image = await request.arrayBuffer();
     if (!image.byteLength || image.byteLength > MAX_IMAGE_BYTES) {
       return NextResponse.json({ message: "Choose an image under 4 MB." }, { status: 413 });
@@ -48,6 +54,15 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error("CMS image upload failed:", error);
     const timedOut = error instanceof Error && (error.name === "TimeoutError" || error.name === "AbortError");
-    return NextResponse.json({ message: timedOut ? "Upload timed out. Please retry." : "Blob storage rejected the upload. Check the store connection for this deployment." }, { status: timedOut ? 504 : 502 });
+    if (error instanceof BlobAccessError || error instanceof BlobStoreNotFoundError) {
+      return NextResponse.json({ message: "Blob store credentials are invalid or the store is disconnected from this deployment. Reconnect the store in Vercel Storage and redeploy." }, { status: 503 });
+    }
+    if (error instanceof BlobStoreSuspendedError) {
+      return NextResponse.json({ message: "The connected Blob store is suspended. Check its status in Vercel Storage." }, { status: 503 });
+    }
+    if (error instanceof BlobContentTypeNotAllowedError) {
+      return NextResponse.json({ message: "This Blob store rejected the image type. Choose a JPG, PNG, or WebP image." }, { status: 415 });
+    }
+    return NextResponse.json({ message: timedOut ? "Upload timed out. Please retry." : "Blob storage could not save the image. Check the Vercel Function log for ‘CMS image upload failed’ and the store connection." }, { status: timedOut ? 504 : 502 });
   }
 }
