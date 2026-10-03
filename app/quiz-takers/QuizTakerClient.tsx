@@ -685,19 +685,20 @@ export default function QuizTakersClient() {
     }
   };
 
-  const handleUpgradePremium = async (id: string) => {
+  const handleSetAccountType = async (id: string, accountType: "premium" | "regular") => {
+    if (accountType === "regular" && !window.confirm("Downgrade this student to regular? Premium features will be locked immediately.")) return;
     try {
       const response = await fetch(`/api/quiz-takers/${id}/update`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ accountType: "premium" }),
+        body: JSON.stringify({ accountType }),
       });
       const data = await response.json();
-      if (!response.ok) throw new Error(data.message || "Failed to upgrade student");
+      if (!response.ok) throw new Error(data.message || "Failed to update student membership");
       setQuizTakers((previous) => previous.map((student) =>
-        student._id === id ? { ...student, accountType: "premium", accessCode: data.quizTaker?.accessCode || student.accessCode } : student));
+        student._id === id ? { ...student, accountType, accessCode: data.quizTaker?.accessCode || student.accessCode } : student));
     } catch (error) {
-      alert(error instanceof Error ? error.message : "Failed to upgrade student");
+      alert(error instanceof Error ? error.message : "Failed to update student membership");
     }
   };
 
@@ -1207,11 +1208,9 @@ export default function QuizTakersClient() {
                             >
                               {taker.accountType}
                             </span>
-                            {taker.accountType === "regular" && (
-                              <button type="button" onClick={() => void handleUpgradePremium(taker._id)} className="ml-2 rounded-md bg-[#fff0df] px-2 py-1 text-[10px] font-bold text-[#8a4e08] hover:bg-[#ffe3bc]">
-                                Upgrade to premium
-                              </button>
-                            )}
+                            <button type="button" onClick={() => void handleSetAccountType(taker._id, taker.accountType === "premium" ? "regular" : "premium")} className="ml-2 rounded-md bg-[#fff0df] px-2 py-1 text-[10px] font-bold text-[#8a4e08] hover:bg-[#ffe3bc]">
+                              {taker.accountType === "premium" ? "Downgrade to regular" : "Upgrade to premium"}
+                            </button>
                           </td>
                           <td className="px-3 py-3">
                             <label className="relative inline-flex items-center cursor-pointer">
@@ -1360,11 +1359,9 @@ export default function QuizTakersClient() {
                             >
                               {taker.accountType}
                             </span>
-                            {taker.accountType === "regular" && (
-                              <button type="button" onClick={() => void handleUpgradePremium(taker._id)} className="rounded-md bg-[#fff0df] px-2 py-1 text-xs font-semibold text-[#8a4e08]">
-                                Upgrade to premium
-                              </button>
-                            )}
+                            <button type="button" onClick={() => void handleSetAccountType(taker._id, taker.accountType === "premium" ? "regular" : "premium")} className="rounded-md bg-[#fff0df] px-2 py-1 text-xs font-semibold text-[#8a4e08]">
+                              {taker.accountType === "premium" ? "Downgrade to regular" : "Upgrade to premium"}
+                            </button>
                             <label className="relative inline-flex items-center cursor-pointer">
                               <input
                                 type="checkbox"

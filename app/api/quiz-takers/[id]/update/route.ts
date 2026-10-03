@@ -18,9 +18,12 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     }
 
     const body = await request.json();
-    const { isActive, accountType } : { isActive?: boolean; accountType?: 'premium' } = body;
-    if (isActive === undefined && accountType !== 'premium') {
+    const { isActive, accountType } : { isActive?: boolean; accountType?: 'premium' | 'regular' } = body;
+    if (isActive === undefined && accountType === undefined) {
       return NextResponse.json({ success: false, message: 'No valid update provided' }, { status: 400 });
+    }
+    if (accountType !== undefined && accountType !== 'premium' && accountType !== 'regular') {
+      return NextResponse.json({ success: false, message: 'Invalid account type' }, { status: 400 });
     }
 
     // Validation
@@ -34,7 +37,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       },
       body: JSON.stringify({
         ...(isActive !== undefined && { isActive }),
-        ...(accountType === 'premium' && { accountType }),
+        ...(accountType !== undefined && { accountType }),
       }),
     });
 
