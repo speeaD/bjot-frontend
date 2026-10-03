@@ -18,7 +18,10 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     }
 
     const body = await request.json();
-    const { isActive } : { isActive: boolean } = body;
+    const { isActive, accountType } : { isActive?: boolean; accountType?: 'premium' } = body;
+    if (isActive === undefined && accountType !== 'premium') {
+      return NextResponse.json({ success: false, message: 'No valid update provided' }, { status: 400 });
+    }
 
     // Validation
     
@@ -30,7 +33,8 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
         'Authorization': `Bearer ${token}`,
       },
       body: JSON.stringify({
-        isActive: isActive
+        ...(isActive !== undefined && { isActive }),
+        ...(accountType === 'premium' && { accountType }),
       }),
     });
 
@@ -43,7 +47,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       );
     }
 
-    return NextResponse.json(data, { status: 201 });
+    return NextResponse.json(data);
   } catch (error) {
     console.error('Create quiz taker error:', error);
     return NextResponse.json(

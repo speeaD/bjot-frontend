@@ -685,6 +685,22 @@ export default function QuizTakersClient() {
     }
   };
 
+  const handleUpgradePremium = async (id: string) => {
+    try {
+      const response = await fetch(`/api/quiz-takers/${id}/update`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ accountType: "premium" }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.message || "Failed to upgrade student");
+      setQuizTakers((previous) => previous.map((student) =>
+        student._id === id ? { ...student, accountType: "premium", accessCode: data.quizTaker?.accessCode || student.accessCode } : student));
+    } catch (error) {
+      alert(error instanceof Error ? error.message : "Failed to upgrade student");
+    }
+  };
+
   const totalStudents = quizTakers.length;
   const premiumStudents = quizTakers.filter(
     (t) => t.accountType === "premium",
@@ -1191,6 +1207,11 @@ export default function QuizTakersClient() {
                             >
                               {taker.accountType}
                             </span>
+                            {taker.accountType === "regular" && (
+                              <button type="button" onClick={() => void handleUpgradePremium(taker._id)} className="ml-2 rounded-md bg-[#fff0df] px-2 py-1 text-[10px] font-bold text-[#8a4e08] hover:bg-[#ffe3bc]">
+                                Upgrade to premium
+                              </button>
+                            )}
                           </td>
                           <td className="px-3 py-3">
                             <label className="relative inline-flex items-center cursor-pointer">
@@ -1339,6 +1360,11 @@ export default function QuizTakersClient() {
                             >
                               {taker.accountType}
                             </span>
+                            {taker.accountType === "regular" && (
+                              <button type="button" onClick={() => void handleUpgradePremium(taker._id)} className="rounded-md bg-[#fff0df] px-2 py-1 text-xs font-semibold text-[#8a4e08]">
+                                Upgrade to premium
+                              </button>
+                            )}
                             <label className="relative inline-flex items-center cursor-pointer">
                               <input
                                 type="checkbox"
