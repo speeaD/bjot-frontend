@@ -1,54 +1,25 @@
 import DailyDashboardClient from '../componets/DailyDashboardClient';
-import { formatDateForApi, getTodayDate } from '../lib/utils/attendance-utils';
+import { getTodayDateForApi } from '../lib/utils/attendance-utils';
+import { requestAttendance } from '../lib/api/attendance-server';
+import type { AttendanceSession, Department } from '../types/global';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 
-
-async function getSessions(token: string, date: string) {
-  try {
-    const response = await fetch(`/api/attendance/sessions/${date}`, {
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-
-      cache: 'no-store',
-    });
-
-    if (!response.ok) {
-      throw new Error('Failed to fetch sessions');
-    }
-
-    const data = await response.json();
-    console.log('Fetched sessions data:', data);
-    return data;
-  } catch (error) {
-    console.error('Error fetching sessions:', error);
-    return [];
-  }
-}
-
-
-export default async function AdminDashboardPage({
+export default async function AdminDashboardPage({ searchParams }: {
+  searchParams: Promise<{ date?: string }>;
 }) {
-const cookieStore = await cookies();
-  const token = cookieStore.get('auth-token')?.value;
+  if (!(await cookies()).get('auth-token')?.value) redirect('/login');
 
-  if (!token) {
-    redirect('/admin/login');
-  }
- 
-  const selectedDate = formatDateForApi(getTodayDate());
-  const error = null;
-  // eslint-disable-next-line react-hooks/purity
-  const initialSessions = await getSessions(token, formatDateForApi(new Date(Date.now())));
+  const requestedDate = (await searchParams).date;
+  const selectedDate = requestedDate && /^\d{4}-\d{2}-\d{2}$/.test(requestedDate)
+    ? requestedDate : getTodayDateForApi();
+  const response = await requestAttendance(`/sessions?date=${encodeURIComponent(selectedDate)}`);
+  if (response.status === 401) redirect('/login');
+  const payload = await response.json();
 
-
-  return (
-    <DailyDashboardClient 
-      initialSessions={initialSessions}
-      initialDate={selectedDate}
-      initialError={error}
-    />
-  );
+  return <DailyDashboardClient
+    initialSessions={response.ok ? payload.data as Record<Department, AttendanceSession[]> : null}
+    initialDate={selectedDate}
+    initialError={response.ok ? null : payload.message || 'Unable to load attendance sessions'}
+  />;
 }

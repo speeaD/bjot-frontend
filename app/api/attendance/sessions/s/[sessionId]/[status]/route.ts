@@ -1,39 +1,18 @@
-import { NextRequest, NextResponse } from "next/server";
-import { cookies } from "next/headers";
+import { requestAttendance } from '../../../../../../lib/api/attendance-server';
 
-const BACKEND_URL = process.env.BACKEND_URL || 'https://bjot-backend.vercel.app/api';
-
-export async function PATCH(
-    request: NextRequest,
-  { params }: { params: Promise<{ sessionId: string, status: string }> }) {
+export async function PATCH(request: Request, { params }: {
+  params: Promise<{ sessionId: string; status: string }>;
+}) {
+  const { sessionId, status } = await params;
+  if (status !== 'open' && status !== 'close') {
+    return Response.json({ message: 'Invalid attendance action' }, { status: 400 });
+  }
   try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get("auth-token")?.value;
-    const {sessionId, status}: { sessionId: string, status: string } = await params;
     const body = await request.json();
-    const response = await fetch(`${BACKEND_URL}/attendance/admin/sessions/${sessionId}/${status}`, {
-      method: 'PATCH',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({body}),
-      credentials: 'include',
-      cache: "no-store",
+    return requestAttendance(`/sessions/${encodeURIComponent(sessionId)}/${status}`, {
+      method: 'PATCH', body: JSON.stringify(body),
     });
-
-
-    if (!response.ok) {
-      throw new Error("Failed to fetch sessions for sessionId");
-    }
-
-
-
-    const data = await response.json();
-    console.log(`Session ${sessionId} ${status} response:`, data);
-    return NextResponse.json({ data });
-  } catch (error) {
-    console.error("Error fetching sessions:", error);
-    return NextResponse.json({ error: "Failed to fetch sessions" }, { status: 500 });
+  } catch {
+    return Response.json({ message: 'Invalid attendance window request' }, { status: 400 });
   }
 }

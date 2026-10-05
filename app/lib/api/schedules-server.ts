@@ -10,9 +10,12 @@ export async function requestSchedules(path = '', options?: RequestInit) {
       ...options, cache: 'no-store',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
     });
-    const data = await response.json().catch(() => ({
-      message: response.status === 404 ? 'Schedules are not available on the backend yet. Deploy the schedules update.' : 'The schedules service returned an invalid response',
-    }));
+    const data = await response.json().catch(() => null);
+    if (!data || (response.ok && !Object.hasOwn(data, 'data'))) {
+      return Response.json({
+        message: response.status === 404 ? 'Schedules are not available on the backend yet. Deploy the schedules update.' : 'The schedules service returned an invalid response',
+      }, { status: 502 });
+    }
     return Response.json(data, { status: response.status });
   } catch {
     return Response.json({ message: 'Unable to reach the schedules service. Please try again.' }, { status: 502 });

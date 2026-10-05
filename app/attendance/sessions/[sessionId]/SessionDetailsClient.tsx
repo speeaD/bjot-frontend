@@ -73,7 +73,7 @@ export default function SessionDetailsClient({
         <div className="text-center py-12">
           <p className="text-gray-600">{error || 'Session not found'}</p>
           <button
-            onClick={() => router.push('/admin/attendance/dashboard')}
+            onClick={() => router.push('/attendance')}
             className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
           >
             Back to Dashboard

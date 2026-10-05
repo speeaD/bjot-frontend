@@ -65,6 +65,9 @@ export const adminApi = {
     if (!data.ok) {
       throw new Error(payload.message || "Failed to fetch all schedules");
     }
+    if (!Array.isArray(payload.data)) {
+      throw new Error("The schedules service returned invalid data");
+    }
     return payload.data as Schedule[];
   },
 
@@ -92,10 +95,10 @@ export const adminApi = {
   // Session Management
   async getSessionsForDate(date: string) {
     const data = await fetch(`/api/attendance/sessions/${date}`);
-    if (!data.ok) {
-      throw new Error("Failed to fetch sessions for date");
-    }
     const sessionsData = await data.json();
+    if (!data.ok) {
+      throw new Error(sessionsData.message || "Failed to fetch sessions for date");
+    }
     return sessionsData.data;
   },
 
@@ -160,12 +163,11 @@ export const adminApi = {
   // Attendance Records
   async getSessionAttendance(sessionId: string) {
     const res = await fetch(`/api/attendance/sessions/s/${sessionId}/attendance`);
-    if (!res.ok) {
-      throw new Error("Failed to fetch session attendance");
-    }
     const attendanceData = await res.json();
-    console.log(`Fetched attendance for session ${sessionId}:`, attendanceData);
-    return attendanceData.data.data as SessionAttendanceData;
+    if (!res.ok) {
+      throw new Error(attendanceData.message || "Failed to fetch session attendance");
+    }
+    return attendanceData.data as SessionAttendanceData;
   },
 
   async manuallyMarkAttendance(
@@ -174,13 +176,17 @@ export const adminApi = {
     status: "present" | "absent" | "excused",
     notes?: string,
   ) {
-    return fetch(
+    const response = await fetch(
       `/api/attendance/sessions/s/${sessionId}/students/${studentId}`,
       {
         method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status, notes }),
       },
     );
+    const payload = await response.json();
+    if (!response.ok) throw new Error(payload.message || "Failed to mark attendance");
+    return payload;
   },
 
   // Reports

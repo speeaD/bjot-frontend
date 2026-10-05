@@ -73,7 +73,7 @@ export default function DailyDashboardClient({
     setError("");
     try {
       const response = await adminApi.getSessionsForDate(selectedDate);
-      setSessions(response.data);
+      setSessions(response);
     } catch (reason: any) {
       setError(reason.message || "Unable to load attendance sessions");
     } finally {
@@ -138,7 +138,7 @@ export default function DailyDashboardClient({
   const shiftDay = (delta: number) => {
     const date = new Date(selectedDate + "T12:00:00");
     date.setDate(date.getDate() + delta);
-    setSelectedDate(date.toISOString().slice(0, 10));
+    setSelectedDate(`${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`);
   };
 
   return (
