@@ -2,11 +2,51 @@ This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-
 
 ## CMS media uploads
 
-The staff and testimonial editors at `/cms` support public image and video uploads through Vercel Blob. Create a **public** Blob store in the Vercel project for this frontend and connect it to the project so Vercel supplies `BLOB_READ_WRITE_TOKEN`. Pull that environment variable into `.env.local` for local development. Never expose the token with a `NEXT_PUBLIC_` prefix.
+The staff and testimonial editors at `/cms` and Study Hub image editor upload public media to Cloudflare R2. Configure a bucket with a public custom domain (for example `https://media.example.com`) and create an R2 API token with **Object Read & Write** access scoped to that bucket. Set these server-only environment variables in the frontend's Vercel project and in `.env.local` for local development:
 
-The upload endpoints check the signed-in admin against the backend. Staff and student photos and Study Hub images accept JPG, PNG, or WebP up to 4 MB and upload through the frontend server. This avoids cross-origin browser requests and stays below Vercel's 4.5 MB Function body limit. Testimonial videos accept MP4 or WebM up to 100 MB and upload directly from the browser with a short-lived token. Once an upload completes, save its CMS record to publish the URL. Existing hosted media URLs can also be entered directly. All uploaded media is public, so do not use this feature for private student data.
+```text
+R2_ACCOUNT_ID=<Cloudflare account ID>
+R2_BUCKET_NAME=<bucket name>
+R2_ACCESS_KEY_ID=<R2 API token access key ID>
+R2_SECRET_ACCESS_KEY=<R2 API token secret access key>
+R2_PUBLIC_URL=https://media.example.com
+```
 
-If a video upload remains at 0% and the browser reports a 400 response from `https://vercel.com/api/blob/`, verify that the frontend's **Production** deployment has the `BLOB_READ_WRITE_TOKEN` for its connected Blob store, then redeploy. A browser CORS message on that failed response can be a symptom of the rejected upload. The video upload endpoint checks the store credential before issuing a client upload token and returns a CMS error when the store cannot be reached with it.
+Do not give the keys a `NEXT_PUBLIC_` prefix. Set the variables for each Vercel environment that needs uploads, then redeploy. `R2_PUBLIC_URL` must be the root HTTPS address serving the bucket contents; the `r2.dev` development URL is not intended for production traffic.
+
+Allow browser uploads from the admin site's exact origins in the R2 bucket CORS settings. Replace the example origin with your actual admin domain (and add your local origin if developing locally):
+
+```json
+[
+  {
+    "AllowedOrigins": ["https://admin.example.com", "http://localhost:3000"],
+    "AllowedMethods": ["PUT"],
+    "AllowedHeaders": ["Content-Type"],
+    "ExposeHeaders": ["ETag"],
+    "MaxAgeSeconds": 3600
+  }
+]
+```
+
+The upload endpoint verifies the signed-in admin with the backend before issuing a five-minute R2 upload URL. The browser then sends the file directly to R2. Staff and student photos and Study Hub images accept JPG, PNG, or WebP up to 4 MB; testimonial videos accept MP4 or WebM up to 100 MB. Save the CMS record after uploading to publish its new URL. Existing hosted media URLs can still be entered directly. All uploaded media is public, so do not use this feature for private student data.
+
+In Study Materials, a text or passage item can include an optional uploaded diagram and a required description. Apply the backend `20261022000000_add_study_material_diagrams` Prisma migration before deploying the updated backend and student site.
+
+To migrate existing Vercel Blob URLs in staff, testimonials, and Study Hub images, run the migration script from this frontend checkout with the sibling `bjot-backend` checkout present. It reads `DATABASE_URL` from the backend environment and the R2 variables above. Run without `--apply` to count references, then run with `--apply` to copy each file, verify its R2 object and public URL, and update the matching database field:
+
+```bash
+node --env-file=../bjot-backend/.env scripts/migrate-blob-media.mjs
+node --env-file=../bjot-backend/.env --env-file=.env.local scripts/migrate-blob-media.mjs --apply
+```
+
+Put the R2 variables in `.env.local` before the apply command, or supply them through your shell environment. The script never deletes old Blob objects and can be rerun after failures. If the Blob transfer cap prevents downloading an old file, that record keeps its old URL until the source becomes available or you provide a local original.
+
+If Blob returns 403, create a mapping template, fill each `localFile` with the path to the matching original photo or video, then apply using the map. Leave `localFile` empty for any asset you cannot recover yet:
+
+```bash
+node --env-file=../bjot-backend/.env scripts/migrate-blob-media.mjs --export-map=/private/tmp/bjot-media-map.json
+node --env-file=../bjot-backend/.env --env-file=.env.local scripts/migrate-blob-media.mjs --source-map=/private/tmp/bjot-media-map.json --apply
+```
 
 ## Topic test links
 

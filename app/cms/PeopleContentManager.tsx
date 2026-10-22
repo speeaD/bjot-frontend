@@ -1,9 +1,8 @@
 "use client";
 
-import { upload } from "@vercel/blob/client";
 import Image from "next/image";
 import { useState } from "react";
-import { MAX_CMS_IMAGE_BYTES, uploadCmsImage } from "./uploadImage";
+import { MAX_CMS_IMAGE_BYTES, uploadCmsMedia } from "./uploadImage";
 
 export type StaffMember = {
   id: string; name: string; role: string | null; course: string | null; bio: string | null;
@@ -85,17 +84,11 @@ export default function PeopleContentManager({ staff, testimonials, onRefresh }:
       const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "-");
       const folder = target === "staff" ? "cms/staff" : video ? "cms/testimonials/videos" : "cms/testimonials/images";
       const pathname = `${folder}/${safeName}`;
-      const url = video
-        ? (await upload(pathname, file, {
-            access: "public", handleUploadUrl: "/api/admin/content/media", contentType: file.type,
-            multipart: true, abortSignal: controller.signal,
-            onUploadProgress: ({ percentage }) => setProgress(Math.round(percentage)),
-          })).url
-        : await uploadCmsImage(pathname, file, controller.signal);
+      const url = await uploadCmsMedia(pathname, file, controller.signal, setProgress);
       if (target === "staff") setStaffForm((form) => ({ ...form, imageUrl: url }));
       else setTestimonialForm((form) => ({ ...form, [video ? "videoUrl" : "imageUrl"]: url }));
       setNotice("Upload complete. Save the record to publish this media.");
-    } catch (cause) { setError(controller.signal.aborted ? "Upload timed out. Check your connection and retry." : cause instanceof Error ? cause.message : "Upload failed. Check the Blob store configuration."); }
+    } catch (cause) { setError(controller.signal.aborted ? "Upload timed out. Check your connection and retry." : cause instanceof Error ? cause.message : "Upload failed. Check the R2 bucket configuration."); }
     finally { window.clearTimeout(timeout); setUploading(null); }
   };
 
