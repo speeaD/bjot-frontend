@@ -74,12 +74,16 @@ async function main() {
   if (!/^[a-f0-9]{32}$/i.test(process.env.R2_ACCOUNT_ID) || !/^[a-z0-9][a-z0-9.-]*$/.test(process.env.R2_BUCKET_NAME)) {
     throw new Error('R2 account ID or bucket name is invalid.');
   }
+  const jurisdiction = process.env.R2_JURISDICTION || 'default';
+  if (!['default', 'us', 'eu', 'fedramp'].includes(jurisdiction)) {
+    throw new Error('R2_JURISDICTION must be default, us, eu, or fedramp.');
+  }
   const publicBase = new URL(process.env.R2_PUBLIC_URL);
   if (publicBase.protocol !== 'https:' || publicBase.pathname !== '/' || publicBase.search || publicBase.hash || publicBase.username || publicBase.password) {
     throw new Error('R2_PUBLIC_URL must be a public HTTPS base URL.');
   }
   const client = new S3Client({
-    region: 'auto', endpoint: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+    region: 'auto', endpoint: `https://${process.env.R2_ACCOUNT_ID}.${jurisdiction === 'default' ? '' : `${jurisdiction}.`}r2.cloudflarestorage.com`,
     forcePathStyle: true, requestChecksumCalculation: 'WHEN_REQUIRED',
     credentials: { accessKeyId: process.env.R2_ACCESS_KEY_ID, secretAccessKey: process.env.R2_SECRET_ACCESS_KEY },
   });

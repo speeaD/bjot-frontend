@@ -10,9 +10,12 @@ R2_BUCKET_NAME=<bucket name>
 R2_ACCESS_KEY_ID=<R2 API token access key ID>
 R2_SECRET_ACCESS_KEY=<R2 API token secret access key>
 R2_PUBLIC_URL=https://media.example.com
+R2_JURISDICTION=us
 ```
 
-Do not give the keys a `NEXT_PUBLIC_` prefix. Set the variables for each Vercel environment that needs uploads, then redeploy. `R2_PUBLIC_URL` must be the root HTTPS address serving the bucket contents; the `r2.dev` development URL is not intended for production traffic.
+Set `R2_JURISDICTION` to `us`, `eu`, or `fedramp` for a jurisdictional bucket; omit it for a default bucket. This bucket uses `us`. Do not give the keys a `NEXT_PUBLIC_` prefix. Set the variables for each Vercel environment that needs uploads, then redeploy. `R2_PUBLIC_URL` must be the root HTTPS address serving the bucket contents; the `r2.dev` development URL is not intended for production traffic.
+
+An upload response of `403 AccessDenied` means R2 rejected the write. Check that the access key and secret belong to an R2 **Object Read & Write** token scoped to this bucket, and that `R2_JURISDICTION` matches the bucket. Generate the R2 S3 access key pair from the R2 API Tokens page; a general Cloudflare API token is not an S3 secret access key.
 
 Videos upload directly from the browser to R2. Allow the admin site's exact origins in the R2 bucket CORS settings for video uploads. Replace the example origin with your actual admin domain (and add your local origin if developing locally):
 

@@ -26,11 +26,15 @@ export async function createR2Upload(key: string, contentType: string) {
   const accessKeyId = process.env.R2_ACCESS_KEY_ID;
   const secretAccessKey = process.env.R2_SECRET_ACCESS_KEY;
   const publicBase = process.env.R2_PUBLIC_URL;
+  const jurisdiction = process.env.R2_JURISDICTION || "default";
   if (!accountId || !bucket || !accessKeyId || !secretAccessKey || !publicBase) {
     throw new Error("Media storage is not configured. Set the R2 environment variables.");
   }
   if (!/^[a-f0-9]{32}$/i.test(accountId) || !/^[a-z0-9][a-z0-9.-]*$/.test(bucket)) {
     throw new Error("R2 account ID or bucket name is invalid.");
+  }
+  if (!["default", "us", "eu", "fedramp"].includes(jurisdiction)) {
+    throw new Error("R2_JURISDICTION must be default, us, eu, or fedramp.");
   }
   const publicUrl = new URL(publicBase);
   if (publicUrl.protocol !== "https:" || publicUrl.pathname !== "/" || publicUrl.search || publicUrl.hash || publicUrl.username || publicUrl.password) {
@@ -39,7 +43,7 @@ export async function createR2Upload(key: string, contentType: string) {
 
   const client = new S3Client({
     region: "auto",
-    endpoint: `https://${accountId}.r2.cloudflarestorage.com`,
+    endpoint: `https://${accountId}.${jurisdiction === "default" ? "" : `${jurisdiction}.`}r2.cloudflarestorage.com`,
     forcePathStyle: true,
     requestChecksumCalculation: "WHEN_REQUIRED",
     credentials: { accessKeyId, secretAccessKey },

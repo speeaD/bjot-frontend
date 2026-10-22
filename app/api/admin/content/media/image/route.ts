@@ -45,7 +45,8 @@ export async function POST(request: NextRequest) {
       const details = await uploaded.text().catch(() => "");
       const code = details.match(/<Code>([^<]+)<\/Code>/)?.[1];
       console.error("CMS R2 image upload rejected:", uploaded.status, code ?? "UnknownError");
-      return NextResponse.json({ message: `R2 rejected the image upload (${uploaded.status}${code ? `: ${code}` : ""}). Check the bucket credentials and permissions.` }, { status: 502 });
+      const advice = code === "AccessDenied" ? "The R2 access key needs Object Read & Write permission for this bucket." : "Check the bucket credentials and permissions.";
+      return NextResponse.json({ message: `R2 rejected the image upload (${uploaded.status}${code ? `: ${code}` : ""}). ${advice}` }, { status: 502 });
     }
     return NextResponse.json({ url });
   } catch (error) {
