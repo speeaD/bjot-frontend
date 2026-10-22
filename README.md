@@ -14,7 +14,7 @@ R2_PUBLIC_URL=https://media.example.com
 
 Do not give the keys a `NEXT_PUBLIC_` prefix. Set the variables for each Vercel environment that needs uploads, then redeploy. `R2_PUBLIC_URL` must be the root HTTPS address serving the bucket contents; the `r2.dev` development URL is not intended for production traffic.
 
-Allow browser uploads from the admin site's exact origins in the R2 bucket CORS settings. Replace the example origin with your actual admin domain (and add your local origin if developing locally):
+Videos upload directly from the browser to R2. Allow the admin site's exact origins in the R2 bucket CORS settings for video uploads. Replace the example origin with your actual admin domain (and add your local origin if developing locally):
 
 ```json
 [
@@ -28,7 +28,7 @@ Allow browser uploads from the admin site's exact origins in the R2 bucket CORS 
 ]
 ```
 
-The upload endpoint verifies the signed-in admin with the backend before issuing a five-minute R2 upload URL. The browser then sends the file directly to R2. Staff and student photos and Study Hub images accept JPG, PNG, or WebP up to 4 MB; testimonial videos accept MP4 or WebM up to 100 MB. Save the CMS record after uploading to publish its new URL. Existing hosted media URLs can still be entered directly. All uploaded media is public, so do not use this feature for private student data.
+The upload endpoints verify the signed-in admin with the backend. Staff and student photos and Study Hub images accept JPG, PNG, or WebP up to 4 MB and upload through the frontend server to R2, so image uploads do not depend on browser CORS. Testimonial videos accept MP4 or WebM up to 100 MB and upload directly from the browser with a five-minute signed R2 URL. Save the CMS record after uploading to publish its new URL. Existing hosted media URLs can still be entered directly. All uploaded media is public, so do not use this feature for private student data.
 
 In Study Materials, a text or passage item can include an optional uploaded diagram and a required description. Apply the backend `20261022000000_add_study_material_diagrams` Prisma migration before deploying the updated backend and student site.
 

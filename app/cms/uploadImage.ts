@@ -1,6 +1,19 @@
 export const MAX_CMS_IMAGE_BYTES = 4 * 1024 * 1024;
 
 export async function uploadCmsMedia(pathname: string, file: File, signal?: AbortSignal, onProgress?: (percentage: number) => void): Promise<string> {
+  if (["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+    const response = await fetch(`/api/admin/content/media/image?pathname=${encodeURIComponent(pathname)}`, {
+      method: "POST",
+      headers: { "Content-Type": file.type },
+      body: file,
+      signal,
+    });
+    const result = await response.json().catch(() => ({})) as { url?: string; message?: string };
+    if (!response.ok || !result.url) throw new Error(result.message || "Could not upload the image to R2.");
+    onProgress?.(100);
+    return result.url;
+  }
+
   const response = await fetch("/api/admin/content/media", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
