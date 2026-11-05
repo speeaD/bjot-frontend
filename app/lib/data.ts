@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { cookies } from "next/headers";
 import { ApiResponse, QuizCardProps } from "../types/global";
+import { fetchAllAdminSubmissions } from './admin-submissions';
 
 const baseUrl: string = process.env.BACKEND_URL || "http://localhost:5004/api";
 
@@ -91,22 +92,7 @@ export const getSubmissions = async () => {
     const cookieStore = await cookies();
     const token = cookieStore.get("auth-token")?.value || "";
     
-    const response = await fetch(`${baseUrl}/admin/submissions`, {
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      credentials: "include",
-      next: { revalidate: 30 } // Ensure fresh data on each request
-    });
-
-    if (!response.ok) {
-      console.error('Failed to fetch submissions');
-      return [];
-    }
-    
-    const data = await response.json();
-    return data.submissions || [];
+    return await fetchAllAdminSubmissions(baseUrl, token);
   } catch (error) {
     console.error('Error fetching submissions:', error);
     return [];

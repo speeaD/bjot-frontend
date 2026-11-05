@@ -4,6 +4,7 @@
 import { useEffect, useMemo, useState } from "react";
 import DashboardTableLoading from "../componets/dashboard/DashboardTableLoading";
 import DashboardContentLoading from "../componets/dashboard/DashboardContentLoading";
+import { isLeaderboardSubmission, normalizeAdminQuizzes, type AdminSubmission } from '../lib/admin-submissions';
 import {
   Award,
   ChevronUp,
@@ -14,31 +15,13 @@ import {
   Trophy,
 } from "lucide-react";
 
-interface Submission {
-  _id: string;
-  quizId: { _id: string; settings: { title: string } };
-  quizTakerId: {
-    _id: string;
-    name?: string;
-    email?: string;
-    accessCode: string;
-  };
-  score: number;
-  totalPoints: number;
-  percentage: number;
-  submittedAt: string;
-  questionSetSubmissions?: {
-    questionSetOrder: number;
-    submittedAt: string;
-    score: number;
-    percentage: number;
-  }[];
-}
 interface Quiz {
   _id: string;
   settings: { title: string };
 }
 type Entry = {
+  id: string;
+  source: 'assigned' | 'public';
   rank: number;
   name: string;
   accessCode: string;
@@ -70,7 +53,8 @@ const scoreStyle = (score: number) =>
 
 export default function LeaderboardClient() {
   const [loading, setLoading] = useState(true);
-  const [submissions, setSubmissions] = useState<Submission[]>([]);
+  const [submissions, setSubmissions] = useState<AdminSubmission[]>([]);
+  const [error, setError] = useState('');
   const [quizzes, setQuizzes] = useState<Quiz[]>([]);
   const [view, setView] = useState<"global" | "exam">("global");
   const [exam, setExam] = useState("");
@@ -79,24 +63,51 @@ export default function LeaderboardClient() {
   const [search, setSearch] = useState("");
 
   useEffect(() => {
-    Promise.all([fetch("/api/submissions"), fetch("/api/quiz")])
-      .then(async ([submissionResponse, quizResponse]) => {
+    let active = true;
+    let inFlight = false;
+    const refresh = async () => {
+      if (inFlight) return;
+      inFlight = true;
+      try {
+        const [submissionResponse, quizResponse] = await Promise.all([
+          fetch('/api/submissions', { cache: 'no-store' }), fetch('/api/quiz', { cache: 'no-store' }),
+        ]);
         const [submissionData, quizData] = await Promise.all([
           submissionResponse.json(),
           quizResponse.json(),
         ]);
-        setSubmissions(submissionData.submissions || []);
-        setQuizzes(quizData.quizzes || []);
-      })
-      .catch((error) => console.error("Could not load standings", error))
-      .finally(() => setLoading(false));
+        if (!submissionResponse.ok || submissionData.success === false) throw new Error(submissionData.message || 'Unable to load submissions');
+        if (!quizResponse.ok || quizData.success === false) throw new Error(quizData.message || 'Unable to load exams');
+        if (!active) return;
+        const records: AdminSubmission[] = submissionData.submissions || [];
+        const exams = new Map(normalizeAdminQuizzes(quizData.quizzes || []).map((quiz) => [quiz._id, quiz]));
+        records.forEach((submission) => exams.set(submission.quizId._id, submission.quizId));
+        setSubmissions(records);
+        setQuizzes([...exams.values()]);
+        setError('');
+      } catch (reason) {
+        if (active) setError(reason instanceof Error ? reason.message : 'Unable to load standings');
+      } finally {
+        inFlight = false;
+        if (active) setLoading(false);
+      }
+    };
+    void refresh();
+    const interval = window.setInterval(() => void refresh(), 30000);
+    window.addEventListener('focus', refresh);
+    return () => {
+      active = false;
+      window.clearInterval(interval);
+      window.removeEventListener('focus', refresh);
+    };
   }, []);
 
   const entries = useMemo<Entry[]>(() => {
+    const completed = submissions.filter(isLeaderboardSubmission);
     let list =
       view === "exam" && exam
-        ? submissions.filter((item) => item.quizId?._id === exam)
-        : submissions;
+        ? completed.filter((item) => item.quizId?._id === exam)
+        : completed;
     if (range !== "all") {
       const since = new Date();
       since.setDate(
@@ -110,6 +121,8 @@ export default function LeaderboardClient() {
       const taker = item.quizTakerId;
       if (!people.has(taker._id))
         people.set(taker._id, {
+          id: taker._id,
+          source: item.source,
           name: taker.name || taker.email || "Candidate",
           accessCode: taker.accessCode,
           total: 0,
@@ -132,6 +145,8 @@ export default function LeaderboardClient() {
     return Array.from(people.values())
       .map((candidate): Omit<Entry, "rank"> => {
         const item: Omit<Entry, "rank"> = {
+          id: candidate.id,
+          source: candidate.source,
           name: candidate.name,
           accessCode: candidate.accessCode,
           averageScore: candidate.total / candidate.count,
@@ -178,7 +193,7 @@ export default function LeaderboardClient() {
               Leaderboard &amp; Standings
             </h1>
             <p className="mt-1 text-sm text-slate-500">
-              Monitor premium students performance across mock examinations
+              Monitor assigned and public mock results across examinations
               and subject clusters.
             </p>
           </div>
@@ -190,6 +205,8 @@ export default function LeaderboardClient() {
             <Download className="h-4 w-4" /> Export standings
           </button>
         </header>
+
+        {error && <p role="alert" className="mb-4 rounded-lg bg-orange-50 p-4 text-sm text-orange-800">{error}</p>}
 
         <section className="mb-4 rounded-xl border border-[#e5ebe8] bg-white p-2 shadow-sm">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
@@ -286,12 +303,12 @@ export default function LeaderboardClient() {
           <DashboardContentLoading label="Loading top candidates" />
         ) : entries.length >= 3 ? (
           <Podium entries={entries.slice(0, 3)} subject={subject} />
-        ) : (
+        ) : entries.length === 0 ? (
           <div className="rounded-xl border border-dashed border-slate-300 bg-white p-10 text-center text-sm text-slate-500">
             Complete submissions will appear here as candidates take their
             exams.
           </div>
-        )}
+        ) : null}
 
         <section aria-busy={loading} className="mt-5 overflow-hidden rounded-xl border border-[#e5ebe8] bg-white shadow-sm">
           <div className="flex flex-col gap-3 border-b border-slate-100 p-5 sm:flex-row sm:items-center sm:justify-between">
@@ -346,7 +363,7 @@ export default function LeaderboardClient() {
                       : item.averageScore;
                   return (
                     <tr
-                      key={item.accessCode || item.rank}
+                      key={item.id}
                       className="transition hover:bg-[#fbfcfb]"
                     >
                       <td className="px-5 py-3.5">
@@ -362,7 +379,7 @@ export default function LeaderboardClient() {
                               {nameOf(item.name)}
                             </p>
                             <p className="text-[11px] text-slate-500">
-                              {item.accessCode || "No access code"}
+                              {item.source === 'public' ? 'Public mock' : item.accessCode || "No access code"}
                             </p>
                           </div>
                         </div>

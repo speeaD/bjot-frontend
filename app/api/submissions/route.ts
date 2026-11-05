@@ -1,5 +1,6 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
+import { AdminSubmissionsError, fetchAllAdminSubmissions } from '../../lib/admin-submissions';
 
 
 const BACKEND_URL = process.env.BACKEND_URL;
@@ -17,26 +18,16 @@ export async function GET()
       );
     }
 
-    const response = await fetch(`${BACKEND_URL}/admin/submissions`, {
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-      next: { revalidate: 30 }, 
+    if (!BACKEND_URL) throw new Error('Backend is not configured');
+    const submissions = await fetchAllAdminSubmissions(BACKEND_URL, token);
+    return NextResponse.json({ success: true, count: submissions.length, submissions }, {
+      headers: { 'Cache-Control': 'no-store' },
     });
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      return NextResponse.json(data, { status: response.status });
-    }
-
-    return NextResponse.json(data);
   } catch (error) {
     console.error('Error fetching submissions:', error);
     return NextResponse.json(
-      { success: false, message: 'Internal server error' },
-      { status: 500 }
+      { success: false, message: error instanceof AdminSubmissionsError ? error.message : 'Unable to load submissions' },
+      { status: error instanceof AdminSubmissionsError ? error.status : 500 }
     );
   }
 }
