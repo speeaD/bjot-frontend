@@ -2,6 +2,7 @@
 
 import { Plus, RefreshCw, Trash2 } from 'lucide-react';
 import DashboardContentLoading from './dashboard/DashboardContentLoading';
+import QuestionPicker from './QuestionPicker';
 
 export interface Topic {
   id: string;
@@ -27,6 +28,7 @@ export interface QuestionSet {
 export interface SubjectSelection {
   questionSetId: string | null;
   topicSelections: TopicSelection[];
+  questionIds?: string[];
 }
 
 interface Props {
@@ -37,7 +39,7 @@ interface Props {
   onQuestionSetChange: (index: number, questionSetId: string | null) => void;
   onAddTopic: (index: number) => void;
   onTopicChange: (index: number, topicIndex: number, topicId: string) => void;
-  onQuestionToggle: (index: number, topicIndex: number, questionId: string) => void;
+  onQuestionsChange: (index: number, topicIndex: number | null, questionIds: string[]) => void;
   onRemoveTopic: (index: number, topicIndex: number) => void;
   isLoading: boolean;
   onRefresh: () => void;
@@ -46,7 +48,7 @@ interface Props {
 
 export default function QuestionSetsSelector({
   availableQuestionSets, selections, topicsByQuestionSet, questionsByQuestionSet, onQuestionSetChange, onAddTopic,
-  onTopicChange, onQuestionToggle, onRemoveTopic, isLoading, onRefresh, examType,
+  onTopicChange, onQuestionsChange, onRemoveTopic, isLoading, onRefresh, examType,
 }: Props) {
   const getSet = (id: string | null) => availableQuestionSets.find((set) => set.id === id) ?? null;
   const selectedElsewhere = (id: string, index: number) => selections.some((selection, itemIndex) => itemIndex !== index && selection.questionSetId === id);
@@ -66,7 +68,7 @@ export default function QuestionSetsSelector({
       </div>
 
       <div className="mb-6 rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900">
-        Select topics, then choose the exact questions for this exam. Subjects without topics use their current active question pool.
+        Select topics, then choose a question range or individual questions for this exam. Range numbers match the question list below each topic.
       </div>
 
       {isLoading ? <DashboardContentLoading label="Loading subjects" cards={1} layout="stack" /> : (
@@ -74,6 +76,8 @@ export default function QuestionSetsSelector({
           {selections.map((selection, index) => {
             const selectedSet = getSet(selection.questionSetId);
             const topics = selectedSet ? (topicsByQuestionSet[selectedSet.id] ?? []).filter((topic) => topic.isActive) : [];
+            const subjectLoaded = selectedSet && topicsByQuestionSet[selectedSet.id] !== undefined && questionsByQuestionSet[selectedSet.id] !== undefined;
+            const subjectQuestions = selectedSet ? (questionsByQuestionSet[selectedSet.id] || []).filter((question) => !question.isArchived) : [];
             const selectedTopicIds = new Set(selection.topicSelections.map((topic) => topic.topicId));
             return <section key={index} className="rounded-lg border-2 border-gray-200 bg-white p-6 shadow-sm">
               <h3 className="mb-4 text-lg font-semibold text-gray-800">{examType === 'single-subject' ? 'Subject' : `Subject ${index + 1}`}</h3>
@@ -84,9 +88,14 @@ export default function QuestionSetsSelector({
                 </select>
               </label>
 
-              {selectedSet && topics.length === 0 && <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">This is a legacy subject with no topics yet. Creating this exam will use its current active question pool.</div>}
+              {selectedSet && !subjectLoaded && <p role="status" className="text-sm text-gray-500">Loading subject questions…</p>}
 
-              {selectedSet && topics.length > 0 && <div className="space-y-3">
+              {selectedSet && subjectLoaded && topics.length === 0 && <div className="space-y-3">
+                <p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">This subject has no active topics. All active questions are selected by default; choose a range or adjust the selection below.</p>
+                <QuestionPicker key={selectedSet.id} label={selectedSet.title} questions={subjectQuestions} selectedIds={selection.questionIds ?? subjectQuestions.map((question) => question.id)} onChange={(ids) => onQuestionsChange(index, null, ids)} />
+              </div>}
+
+              {selectedSet && subjectLoaded && topics.length > 0 && <div className="space-y-3">
                 <div className="flex items-center justify-between"><div><p className="font-medium text-gray-800">Topic questions</p><p className="text-xs text-gray-500">Each topic can be selected once.</p></div><button type="button" onClick={() => onAddTopic(index)} disabled={selectedTopicIds.size === topics.length} className="inline-flex items-center rounded-lg border border-blue-200 px-3 py-2 text-sm font-medium text-blue-700 disabled:opacity-50"><Plus className="mr-1 h-4 w-4" /> Add topic</button></div>
                 {selection.topicSelections.map((topicSelection, topicIndex) => {
                   const topic = topics.find((item) => item.id === topicSelection.topicId);
@@ -101,7 +110,7 @@ export default function QuestionSetsSelector({
                     </label>
                     <button type="button" onClick={() => onRemoveTopic(index, topicIndex)} className="rounded-lg p-2 text-red-600 hover:bg-red-50" aria-label="Remove topic"><Trash2 className="h-4 w-4" /></button>
                     {topic && <p className="col-span-2 text-xs text-gray-500">{maximum} available question{maximum === 1 ? '' : 's'} from {topic.name}.</p>}
-                    {topic && <details className="col-span-2 rounded border border-gray-200 bg-white p-3"><summary className="cursor-pointer text-sm font-medium text-blue-700">Choose questions ({topicSelection.questionIds.length} selected)</summary><div className="mt-3 max-h-64 space-y-2 overflow-y-auto">{questions.map((question, questionIndex) => <label key={question.id} className="flex gap-2 rounded border border-gray-100 p-2 text-sm"><input type="checkbox" checked={topicSelection.questionIds.includes(question.id)} onChange={() => onQuestionToggle(index, topicIndex, question.id)} /><span>{questionIndex + 1}. {question.question}</span></label>)}{questions.length === 0 && <p className="text-xs text-gray-500">No active questions in this topic.</p>}</div></details>}
+                    {topic && <div className="col-span-2"><QuestionPicker label={topic.name} questions={questions} selectedIds={topicSelection.questionIds} onChange={(ids) => onQuestionsChange(index, topicIndex, ids)} /></div>}
                   </div>;
                 })}
                 {selection.topicSelections.length === 0 && <p className="rounded-lg border border-dashed border-gray-300 p-4 text-sm text-gray-500">Add at least one topic to build this subject.</p>}

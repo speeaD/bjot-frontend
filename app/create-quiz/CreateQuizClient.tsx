@@ -10,6 +10,7 @@ import QuestionSetsSelector, {
   Topic,
 } from "../componets/QuestionSetsSelector";
 import { QuizSettings } from "../types/global";
+import { questionFilterFor } from "../lib/questionSelection";
 import {
   readExamDrafts,
   removeExamDraft,
@@ -256,16 +257,11 @@ export default function CreateQuizClient({}: CreateQuizClientProps) {
         (_, itemIndex) => itemIndex !== topicIndex,
       ),
     }));
-  const toggleQuestion = (index: number, topicIndex: number, questionId: string) =>
-    changeSelection(index, (selection) => ({
+  const changeQuestions = (index: number, topicIndex: number | null, questionIds: string[]) =>
+    changeSelection(index, (selection) => topicIndex === null ? { ...selection, questionIds } : ({
       ...selection,
-      topicSelections: selection.topicSelections.map((topic, itemIndex) => {
-        if (itemIndex !== topicIndex) return topic;
-        const questionIds = topic.questionIds.includes(questionId)
-          ? topic.questionIds.filter((id) => id !== questionId)
-          : [...topic.questionIds, questionId];
-        return { ...topic, questionIds, questionCount: questionIds.length };
-      }),
+      topicSelections: selection.topicSelections.map((topic, itemIndex) =>
+        itemIndex === topicIndex ? { ...topic, questionIds, questionCount: questionIds.length } : topic),
     }));
 
   const validationError = useMemo(() => {
@@ -280,8 +276,15 @@ export default function CreateQuizClient({}: CreateQuizClientProps) {
     for (const selection of selections) {
       const setId = selection.questionSetId!;
       const topics = topicsByQuestionSet[setId];
-      if (!topics) return "Topics are still loading. Please wait a moment.";
-      if (topics.filter((topic) => topic.isActive).length === 0) continue; // Legacy bank: preserve its complete pool.
+      const questions = questionsByQuestionSet[setId];
+      if (!topics || !questions) return "Subject questions are still loading. Please wait a moment.";
+      if (topics.filter((topic) => topic.isActive).length === 0) {
+        const eligible = new Set(questions.filter((question) => !question.isArchived).map((question) => question.id));
+        const ids = selection.questionIds ?? [...eligible];
+        if (!ids.length || new Set(ids).size !== ids.length || ids.some((id) => !eligible.has(id)))
+          return "Select at least one available question for every subject.";
+        continue;
+      }
       if (!selection.topicSelections.length)
         return "Select at least one topic for every topic-based subject.";
       const used = new Set<string>();
@@ -322,13 +325,13 @@ export default function CreateQuizClient({}: CreateQuizClientProps) {
                     (sum, topic) => sum + topic.questionIds.length,
                     0,
                   )
-                : set?.questionCount || 0),
+                : selection.questionIds?.length ?? (selection.questionSetId ? questionsByQuestionSet[selection.questionSetId]?.filter((question) => !question.isArchived).length : undefined) ?? set?.questionCount ?? 0),
             points: total.points + (hasTopics ? 0 : set?.totalPoints || 0),
           };
         },
         { subjects: 0, questions: 0, points: 0 },
       ),
-    [availableQuestionSets, selections, topicsByQuestionSet],
+    [availableQuestionSets, selections, topicsByQuestionSet, questionsByQuestionSet],
   );
 
   const submit = async () => {
@@ -344,11 +347,7 @@ export default function CreateQuizClient({}: CreateQuizClientProps) {
         questionSetCombination: selections.map(
           (selection) => selection.questionSetId!,
         ),
-        questionFilters: selections.map((selection) =>
-          selection.topicSelections.length
-            ? { topicSelections: selection.topicSelections.map((topic) => ({ ...topic, questionCount: topic.questionIds.length })) }
-            : undefined,
-        ),
+        questionFilters: selections.map(questionFilterFor),
       };
       const response = await fetch("/api/quiz/create", {
         method: "POST",
@@ -478,7 +477,7 @@ export default function CreateQuizClient({}: CreateQuizClientProps) {
                 onQuestionSetChange={handleQuestionSetChange}
                 onAddTopic={addTopic}
                 onTopicChange={changeTopic}
-                onQuestionToggle={toggleQuestion}
+                onQuestionsChange={changeQuestions}
                 onRemoveTopic={removeTopic}
                 isLoading={isLoadingQuestionSets}
                 onRefresh={fetchQuestionSets}

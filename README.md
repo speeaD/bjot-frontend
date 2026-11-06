@@ -33,6 +33,8 @@ Videos upload directly from the browser to R2. Allow the admin site's exact orig
 
 The upload endpoints verify the signed-in admin with the backend. Staff and student photos and Study Hub images accept JPG, PNG, or WebP up to 4 MB and upload through the frontend server to R2, so image uploads do not depend on browser CORS. Testimonial videos accept MP4 or WebM up to 100 MB and upload directly from the browser with a five-minute signed R2 URL. Save the CMS record after uploading to publish its new URL. Existing hosted media URLs can still be entered directly. All uploaded media is public, so do not use this feature for private student data.
 
+Study Hub topic covers can be added when creating a topic or through **Edit topic** on the subject page. Upload an image or enter its hosted URL, then save the topic. Covers appear on student topic cards and lesson pages; **Remove cover image** clears the cover after saving. Deploy the backend's `20261106000000_add_topic_cover_images` migration before using this feature. Topic covers reuse the Study Hub image upload configuration above.
+
 In Study Materials, a text or passage item can include an optional uploaded diagram and a required description. Apply the backend `20261022000000_add_study_material_diagrams` Prisma migration before deploying the updated backend and student site.
 
 To migrate existing Vercel Blob URLs in staff, testimonials, and Study Hub images, run the migration script from this frontend checkout with the sibling `bjot-backend` checkout present. It reads `DATABASE_URL` from the backend environment and the R2 variables above. Run without `--apply` to count references, then run with `--apply` to copy each file, verify its R2 object and public URL, and update the matching database field:
