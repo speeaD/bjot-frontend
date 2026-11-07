@@ -79,7 +79,7 @@ export default function QuizSettingsComponent({ settings, onSettingsChange } : Q
                     <div>
                         <h3 className="font-semibold text-gray-800 text-lg mb-2">Make exam open?</h3>
                         <p className="text-gray-600">
-                            Open exams can be taken without login. To appear on the free-mock page, use four subjects with auto-graded questions and enable results.
+                            Open exams can be taken without login. Free mocks need English and at least three other subjects, auto-graded questions, and results enabled.
                         </p>
                     </div>
                     <ToggleSwitch value={settings.isOpenQuiz || false} 
@@ -125,6 +125,7 @@ export default function QuizSettingsComponent({ settings, onSettingsChange } : Q
                         <select
                             value={settings.duration.hours}
                             onChange={(e) => updateDuration('hours', Number(e.target.value))}
+                            aria-label="Exam duration hours"
                             className="px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 w-24"
                         >
                             {[...Array(24)].map((_, i) => (
@@ -136,6 +137,7 @@ export default function QuizSettingsComponent({ settings, onSettingsChange } : Q
                     <div>
                         <select
                             value={settings.duration.minutes}
+                            aria-label="Exam duration minutes"
                             onChange={(e) => updateDuration('minutes', Number(e.target.value))}
                             className="px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 w-24"
                         >
@@ -148,6 +150,7 @@ export default function QuizSettingsComponent({ settings, onSettingsChange } : Q
                     <div>
                         <select
                             value={settings.duration.seconds}
+                            aria-label="Exam duration seconds"
                             onChange={(e) => updateDuration('seconds', Number(e.target.value))}
                             className="px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 w-24"
                         >
@@ -158,6 +161,7 @@ export default function QuizSettingsComponent({ settings, onSettingsChange } : Q
                         <div className="text-sm font-semibold text-gray-700 mt-2">SEC</div>
                     </div>
                 </div>
+                <p className="mt-3 text-sm font-medium text-gray-700">Exam length: {settings.duration.hours}h {settings.duration.minutes}m {settings.duration.seconds}s</p>
             </div>
             {/* Quiz Settings */}
             <div className="bg-white rounded-lg shadow p-6 space-y-6">

@@ -5,6 +5,7 @@ export type ExamDraft = {
   id: string;
   updatedAt: string;
   examType: 'multi-subject' | 'single-subject';
+  studentSelectsSubjects?: boolean;
   settings: QuizSettings;
   selections: SubjectSelection[];
 };

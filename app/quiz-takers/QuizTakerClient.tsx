@@ -47,6 +47,7 @@ interface Quiz {
   settings: {
     title: string;
     examType?: "multi-subject" | "single-subject";
+    studentSelectsSubjects?: boolean;
   };
   questionSetCombination: string[];
 }
@@ -293,6 +294,7 @@ export default function QuizTakersClient() {
     );
 
     return quizzes.filter((quiz) => {
+      if (quiz.settings.studentSelectsSubjects) return true;
       const examType = quiz.settings.examType || "multi-subject";
 
       if (examType === "single-subject") {

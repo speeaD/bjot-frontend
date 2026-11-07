@@ -44,11 +44,13 @@ interface Props {
   isLoading: boolean;
   onRefresh: () => void;
   examType: 'multi-subject' | 'single-subject';
+  studentSelectsSubjects?: boolean;
+  onLoadSubject?: (id: string) => void;
 }
 
 export default function QuestionSetsSelector({
   availableQuestionSets, selections, topicsByQuestionSet, questionsByQuestionSet, onQuestionSetChange, onAddTopic,
-  onTopicChange, onQuestionsChange, onRemoveTopic, isLoading, onRefresh, examType,
+  onTopicChange, onQuestionsChange, onRemoveTopic, isLoading, onRefresh, examType, studentSelectsSubjects = false, onLoadSubject,
 }: Props) {
   const getSet = (id: string | null) => availableQuestionSets.find((set) => set.id === id) ?? null;
   const selectedElsewhere = (id: string, index: number) => selections.some((selection, itemIndex) => itemIndex !== index && selection.questionSetId === id);
@@ -59,7 +61,7 @@ export default function QuestionSetsSelector({
         <div>
           <h2 className="text-2xl font-bold text-gray-800">Build from topics</h2>
           <p className="mt-1 text-gray-600">
-            {examType === 'single-subject' ? 'Choose a subject and the topic mix for this exam.' : 'Choose four subjects, then compose each subject from its topics.'}
+            {studentSelectsSubjects ? 'All active subjects are included. Open each subject and select its topic questions. Students will take English plus three subjects of their choice.' : examType === 'single-subject' ? 'Choose a subject and the topic mix for this exam.' : 'Choose four subjects, then compose each subject from its topics.'}
           </p>
         </div>
         <button onClick={onRefresh} disabled={isLoading} className="flex items-center rounded-lg border border-gray-300 bg-white px-4 py-2 hover:bg-gray-50 disabled:opacity-50">
@@ -79,18 +81,20 @@ export default function QuestionSetsSelector({
             const subjectLoaded = selectedSet && topicsByQuestionSet[selectedSet.id] !== undefined && questionsByQuestionSet[selectedSet.id] !== undefined;
             const subjectQuestions = selectedSet ? (questionsByQuestionSet[selectedSet.id] || []).filter((question) => !question.isArchived) : [];
             const selectedTopicIds = new Set(selection.topicSelections.map((topic) => topic.topicId));
-            return <section key={index} className="rounded-lg border-2 border-gray-200 bg-white p-6 shadow-sm">
-              <h3 className="mb-4 text-lg font-semibold text-gray-800">{examType === 'single-subject' ? 'Subject' : `Subject ${index + 1}`}</h3>
-              <label className="mb-4 block text-sm font-medium text-gray-700">Select subject
+            return <details key={selection.questionSetId || index} open={!studentSelectsSubjects} onToggle={(event) => { if (event.currentTarget.open && selectedSet) onLoadSubject?.(selectedSet.id); }} className="self-start rounded-lg border-2 border-gray-200 bg-white p-6 shadow-sm">
+              <summary className="cursor-pointer text-lg font-semibold text-gray-800">{studentSelectsSubjects ? selectedSet?.title : examType === 'single-subject' ? 'Subject' : `Subject ${index + 1}`} {studentSelectsSubjects && <span className="ml-2 text-xs font-normal text-gray-500">{selection.topicSelections.reduce((sum, topic) => sum + topic.questionIds.length, 0)} questions selected</span>}</summary>
+              <div className="mt-4">
+              {!studentSelectsSubjects && <label className="mb-4 block text-sm font-medium text-gray-700">Select subject
                 <select value={selection.questionSetId ?? ''} onChange={(event) => onQuestionSetChange(index, event.target.value || null)} className="mt-2 w-full rounded-lg border border-gray-300 px-4 py-2 focus:ring-2 focus:ring-blue-500">
                   <option value="">-- Select a subject --</option>
                   {availableQuestionSets.filter((set) => set.isActive && !selectedElsewhere(set.id, index)).map((set) => <option key={set.id} value={set.id}>{set.title} ({set.questionCount} questions)</option>)}
                 </select>
-              </label>
+              </label>}
 
-              {selectedSet && !subjectLoaded && <p role="status" className="text-sm text-gray-500">Loading subject questions…</p>}
+              {selectedSet && !subjectLoaded && <div><p role="status" className="text-sm text-gray-500">Loading subject questions…</p><button type="button" className="mt-2 text-sm font-semibold text-blue-700 underline" onClick={() => onLoadSubject?.(selectedSet.id)}>Retry loading</button></div>}
 
-              {selectedSet && subjectLoaded && topics.length === 0 && <div className="space-y-3">
+              {selectedSet && subjectLoaded && topics.length === 0 && studentSelectsSubjects && <p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">Add topics and topic questions to this subject in the question bank before publishing this mock.</p>}
+              {selectedSet && subjectLoaded && topics.length === 0 && !studentSelectsSubjects && <div className="space-y-3">
                 <p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">This subject has no active topics. All active questions are selected by default; choose a range or adjust the selection below.</p>
                 <QuestionPicker key={selectedSet.id} label={selectedSet.title} questions={subjectQuestions} selectedIds={selection.questionIds ?? subjectQuestions.map((question) => question.id)} onChange={(ids) => onQuestionsChange(index, null, ids)} />
               </div>}
@@ -115,7 +119,8 @@ export default function QuestionSetsSelector({
                 })}
                 {selection.topicSelections.length === 0 && <p className="rounded-lg border border-dashed border-gray-300 p-4 text-sm text-gray-500">Add at least one topic to build this subject.</p>}
               </div>}
-            </section>;
+              </div>
+            </details>;
           })}
         </div>
       )}
