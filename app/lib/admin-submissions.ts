@@ -1,6 +1,7 @@
 type QuizReference = { id?: string; _id?: string; title?: string; settings?: { title: string } };
 type StudentReference = { id?: string; _id?: string; name?: string; email?: string; accessCode?: string | null };
-type SubjectScore = { questionSetOrder: number; submittedAt: string; score: number; percentage: number };
+type SubjectScore = { questionSetOrder: number; questionSetId?: string | null; questionSetTitle?: string | null;
+  submittedAt: string; score: number; percentage: number };
 
 export interface AdminSubmission {
   _id: string;
@@ -56,6 +57,22 @@ export function normalizeAdminQuizzes(values: QuizReference[]) {
 
 export function isLeaderboardSubmission(submission: AdminSubmission): boolean {
   return submission.countsForGrade && submission.status !== 'in-progress';
+}
+
+export function leaderboardSubjectKey(subject: SubjectScore, quizId: string): string {
+  // A subject may occupy different positions in different exams. Historical
+  // records without subject IDs stay scoped to their exam instead of mixing sets.
+  return subject.questionSetId ? `subject:${subject.questionSetId}` : `exam:${quizId}:subject:${subject.questionSetOrder}`;
+}
+
+export function leaderboardSubjects(submissions: AdminSubmission[]): { id: string; title: string }[] {
+  const subjects = new Map<string, string>();
+  for (const submission of submissions) {
+    for (const subject of submission.questionSetSubmissions || []) {
+      subjects.set(leaderboardSubjectKey(subject, submission.quizId._id), subject.questionSetTitle?.trim() || 'Unknown subject');
+    }
+  }
+  return [...subjects].map(([id, title]) => ({ id, title })).sort((a, b) => a.title.localeCompare(b.title));
 }
 
 export class AdminSubmissionsError extends Error {

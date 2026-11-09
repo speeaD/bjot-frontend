@@ -4,7 +4,7 @@
 import { useEffect, useMemo, useState } from "react";
 import DashboardTableLoading from "../componets/dashboard/DashboardTableLoading";
 import DashboardContentLoading from "../componets/dashboard/DashboardContentLoading";
-import { isLeaderboardSubmission, normalizeAdminQuizzes, type AdminSubmission } from '../lib/admin-submissions';
+import { isLeaderboardSubmission, leaderboardSubjectKey, leaderboardSubjects, normalizeAdminQuizzes, type AdminSubmission } from '../lib/admin-submissions';
 import {
   Award,
   ChevronUp,
@@ -58,7 +58,7 @@ export default function LeaderboardClient() {
   const [quizzes, setQuizzes] = useState<Quiz[]>([]);
   const [view, setView] = useState<"global" | "exam">("global");
   const [exam, setExam] = useState("");
-  const [subject, setSubject] = useState<number | null>(null);
+  const [selectedSubject, setSubject] = useState<string | null>(null);
   const [range, setRange] = useState("all");
   const [search, setSearch] = useState("");
 
@@ -102,7 +102,7 @@ export default function LeaderboardClient() {
     };
   }, []);
 
-  const entries = useMemo<Entry[]>(() => {
+  const scopedSubmissions = useMemo(() => {
     const completed = submissions.filter(isLeaderboardSubmission);
     let list =
       view === "exam" && exam
@@ -115,8 +115,15 @@ export default function LeaderboardClient() {
       );
       list = list.filter((item) => new Date(item.submittedAt) >= since);
     }
+    return list;
+  }, [submissions, view, exam, range]);
+
+  const subjects = useMemo(() => leaderboardSubjects(scopedSubmissions), [scopedSubmissions]);
+  const subject = subjects.some((item) => item.id === selectedSubject) ? selectedSubject : null;
+
+  const entries = useMemo<Entry[]>(() => {
     const people = new Map<string, any>();
-    list.forEach((item) => {
+    scopedSubmissions.forEach((item) => {
       if (!item.quizTakerId?._id || !item.totalPoints) return;
       const taker = item.quizTakerId;
       if (!people.has(taker._id))
@@ -138,7 +145,7 @@ export default function LeaderboardClient() {
         subject === null
           ? undefined
           : item.questionSetSubmissions?.find(
-              (set) => set.questionSetOrder === subject,
+              (set) => leaderboardSubjectKey(set, item.quizId._id) === subject,
             );
       if (data) candidate.subjects.push(data);
     });
@@ -173,7 +180,7 @@ export default function LeaderboardClient() {
       )
       .slice(0, 50)
       .map((item, index) => ({ ...item, rank: index + 1 }));
-  }, [submissions, view, exam, subject, range]);
+  }, [scopedSubmissions, subject]);
 
   const visible = entries.filter(
     (item) =>
@@ -227,7 +234,8 @@ export default function LeaderboardClient() {
                 Per exam mock
               </button>
               <button
-                onClick={() => setSubject(subject === null ? 1 : null)}
+                onClick={() => setSubject(subject === null ? subjects[0]?.id ?? null : null)}
+                disabled={!subjects.length}
                 className={`rounded-lg px-3.5 py-2 text-xs font-semibold ${subject !== null ? "bg-[#ecf2ef] text-[#004b37]" : "text-slate-500 hover:bg-slate-50"}`}
               >
                 Subject mastery
@@ -262,15 +270,16 @@ export default function LeaderboardClient() {
           </div>
           <div className="mt-2 flex flex-wrap items-center gap-2 border-t border-slate-100 px-1 pt-3">
             <span className="mr-1 text-[10px] font-bold uppercase tracking-[.14em] text-slate-500">
-              <Target className="mr-1 inline h-3 w-3 text-[#ea8b20]" /> Sets
+              <Target className="mr-1 inline h-3 w-3 text-[#ea8b20]" /> Subjects
             </span>
-            {[null, 1, 2, 3, 4].map((value) => (
+            {[{ id: null, title: 'All subjects' }, ...subjects].map(({ id, title }) => (
               <button
-                key={value ?? "all"}
-                onClick={() => setSubject(value)}
-                className={`rounded-full px-3 py-1.5 text-[11px] font-medium ${subject === value ? "bg-[#004b37] text-white" : "bg-[#f5f7f6] text-slate-600 hover:bg-[#eef4ef]"}`}
+                key={id ?? "all"}
+                onClick={() => setSubject(id)}
+                aria-pressed={subject === id}
+                className={`rounded-full px-3 py-1.5 text-[11px] font-medium ${subject === id ? "bg-[#004b37] text-white" : "bg-[#f5f7f6] text-slate-600 hover:bg-[#eef4ef]"}`}
               >
-                {value === null ? "All subjects" : `Set ${value}`}
+                {title}
               </button>
             ))}
           </div>
@@ -319,7 +328,7 @@ export default function LeaderboardClient() {
               <p className="mt-0.5 text-xs text-slate-500">
                 Ranked by{" "}
                 {subject !== null
-                  ? "best subject-set score"
+                  ? "best subject score"
                   : "average score across submitted exams"}
                 .
               </p>
@@ -470,7 +479,7 @@ function Podium({
   subject,
 }: {
   entries: Entry[];
-  subject: number | null;
+  subject: string | null;
 }) {
   const order = [entries[1], entries[0], entries[2]];
   const heights = ["h-16", "h-24", "h-12"];
