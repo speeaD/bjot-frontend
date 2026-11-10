@@ -23,13 +23,17 @@ import {
 } from "lucide-react";
 import DashboardHeader from "../componets/dashboard/DashboardHeader";
 import DashboardTableLoading from "../componets/dashboard/DashboardTableLoading";
+import { expiryLabel, jambPracticeAccess, matchesPlanFilter, membershipChoice, membershipLabels, membershipPayload, type Membership, type MembershipChoice, type PlanFilter } from '../lib/admin-memberships';
+import PlanFields from './PlanFields';
+import PlanSummary from './PlanSummary';
+import StudentPlanEditor from './StudentPlanEditor';
 
 interface QuestionSet {
   _id: string;
   title: string;
 }
 
-interface QuizTaker {
+interface QuizTaker extends Membership {
   _id: string;
   email: string;
   name?: string;
@@ -72,6 +76,8 @@ export default function QuizTakersClient() {
   const [showImportModal, setShowImportModal] = useState(false);
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [showUnassignModal, setShowUnassignModal] = useState(false);
+  const [editingStudent, setEditingStudent] = useState<QuizTaker | null>(null);
+  const [proMaxExpiresAt, setProMaxExpiresAt] = useState<string | null>(null);
 
   // Data States — start empty, populated on mount
   const [isPageLoading, setIsPageLoading] = useState(true);
@@ -85,6 +91,7 @@ export default function QuizTakersClient() {
     "all" | "premium" | "regular"
   >("all");
   const [subjectFilter, setSubjectFilter] = useState<string[]>([]);
+  const [planFilter, setPlanFilter] = useState<PlanFilter>('all');
   const [assignedQuizFilter, setAssignedQuizFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<
     "all" | "active" | "inactive"
@@ -100,6 +107,8 @@ export default function QuizTakersClient() {
   // Form states
   const [newEmail, setNewEmail] = useState("");
   const [newName, setNewName] = useState("");
+  const [newPlan, setNewPlan] = useState<MembershipChoice>('legacy');
+  const [newExpiry, setNewExpiry] = useState('');
   const [selectedQuestionSets, setSelectedQuestionSets] = useState<string[]>(
     [],
   );
@@ -139,6 +148,7 @@ export default function QuizTakersClient() {
         if (!setsRes.ok) throw new Error(setsData.message || 'Failed to load question sets');
 
         setQuizTakers(takersData.quizTakers || []);
+        setProMaxExpiresAt(takersData.subscriptionOptions?.proMaxExpiresAt || null);
         setQuizzes(quizzesData.quizzes || []);
         setQuestionSets(setsData.questionSets || []);
       } catch (err) {
@@ -209,6 +219,7 @@ export default function QuizTakersClient() {
         taker.accessCode?.toLowerCase().includes(searchLower);
 
       if (!matchesSearch) return false;
+      if (!matchesPlanFilter(taker, planFilter)) return false;
 
       if (
         accountTypeFilter !== "all" &&
@@ -257,6 +268,7 @@ export default function QuizTakersClient() {
     quizTakers,
     searchTerm,
     accountTypeFilter,
+    planFilter,
     statusFilter,
     subjectFilter,
     assignedQuizFilter,
@@ -269,6 +281,7 @@ export default function QuizTakersClient() {
   }, [
     searchTerm,
     accountTypeFilter,
+    planFilter,
     statusFilter,
     subjectFilter,
     assignedQuizFilter,
@@ -372,6 +385,7 @@ export default function QuizTakersClient() {
   const activeFilterCount = useMemo(() => {
     let count = 0;
     if (accountTypeFilter !== "all") count++;
+    if (planFilter !== 'all') count++;
     if (statusFilter !== "all") count++;
     if (subjectFilter.length > 0) count++;
     if (assignedQuizFilter !== "all") count++;
@@ -379,6 +393,7 @@ export default function QuizTakersClient() {
     return count;
   }, [
     accountTypeFilter,
+    planFilter,
     statusFilter,
     subjectFilter,
     assignedQuizFilter,
@@ -389,6 +404,7 @@ export default function QuizTakersClient() {
 
   const clearAllFilters = () => {
     setAccountTypeFilter("all");
+    setPlanFilter('all');
     setStatusFilter("all");
     setSubjectFilter([]);
     setAssignedQuizFilter("all");
@@ -403,6 +419,9 @@ export default function QuizTakersClient() {
         taker.name || "",
         taker.email,
         taker.accountType,
+        membershipLabels[membershipChoice(taker)],
+        taker.subscriptionExpiresAt ? expiryLabel(taker.subscriptionExpiresAt) : '',
+        jambPracticeAccess(taker) ? 'Enabled' : 'Locked',
         taker.isActive ? "Active" : "Inactive",
         taker.accessCode || "",
         taker.questionSetCombination
@@ -418,6 +437,9 @@ export default function QuizTakersClient() {
         "Name",
         "Email",
         "Account Type",
+        'Plan',
+        'Access Through (Lagos)',
+        'JAMB CBT',
         "Status",
         "Access Code",
         "Subject Combination",
@@ -496,6 +518,7 @@ export default function QuizTakersClient() {
           email: newEmail,
           name: newName || undefined,
           questionSetCombination: selectedQuestionSets,
+          ...membershipPayload(newPlan, newExpiry),
         }),
       });
 
@@ -508,6 +531,8 @@ export default function QuizTakersClient() {
       await refreshQuizTakers();
       setNewEmail("");
       setNewName("");
+      setNewPlan('legacy');
+      setNewExpiry('');
       setSelectedQuestionSets([]);
       setShowAddModal(false);
       alert(
@@ -687,21 +712,16 @@ export default function QuizTakersClient() {
     }
   };
 
-  const handleSetAccountType = async (id: string, accountType: "premium" | "regular") => {
-    if (accountType === "regular" && !window.confirm("Downgrade this student to regular? Premium features will be locked immediately.")) return;
-    try {
-      const response = await fetch(`/api/quiz-takers/${id}/update`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ accountType }),
-      });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.message || "Failed to update student membership");
-      setQuizTakers((previous) => previous.map((student) =>
-        student._id === id ? { ...student, accountType, accessCode: data.quizTaker?.accessCode || student.accessCode } : student));
-    } catch (error) {
-      alert(error instanceof Error ? error.message : "Failed to update student membership");
-    }
+  const saveStudentPlan = async (id: string, payload: ReturnType<typeof membershipPayload>) => {
+    const response = await fetch(`/api/quiz-takers/${id}/update`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.message || "Failed to update student membership");
+    setQuizTakers((previous) => previous.map((student) =>
+      student._id === id ? { ...student, ...data.quizTaker, _id: student._id } : student));
   };
 
   const totalStudents = quizTakers.length;
@@ -756,7 +776,7 @@ export default function QuizTakersClient() {
                     className="inline-flex items-center gap-2 rounded-lg bg-white/10 px-3 py-2 text-xs font-semibold hover:bg-white/15 disabled:opacity-50"
                   >
                     <Download className="h-4 w-4 text-[#f7aa34]" />
-                    Bulk Upload CSV
+                    Export CSV
                   </button>
                   
                   <button
@@ -932,7 +952,13 @@ export default function QuizTakersClient() {
               <div
                 className={`${showFilterPanel ? "block" : "hidden"} space-y-4 border-b border-[#edf1f0] bg-[#fbfcfc] px-3 py-3`}
               >
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
+                  <div>
+                    <label htmlFor="student-plan-filter" className="mb-1.5 block text-xs font-medium text-gray-700">Plan</label>
+                    <select id="student-plan-filter" value={planFilter} onChange={(event) => setPlanFilter(event.target.value as PlanFilter)} className="w-full rounded-md border border-gray-300 bg-[#f0f2f3] px-3 py-2 text-sm">
+                      <option value="all">All plans</option><option value="pro">Pro</option><option value="pro-max">Pro Max</option><option value="lite">Lite</option><option value="legacy">Premium — plan not set</option><option value="regular">Regular</option><option value="expired">Expired plans</option>
+                    </select>
+                  </div>
                   {/* Account Type Filter */}
                   <div>
                     <label className="block text-xs font-medium text-gray-700 mb-1.5">
@@ -1131,7 +1157,7 @@ export default function QuizTakersClient() {
                         Student / Candidate
                       </th>
                       <th className="px-3 py-3 text-left text-[10px] font-bold uppercase tracking-wider text-[#5d6665]">
-                        Type
+                        Plan / JAMB CBT access
                       </th>
                       <th className="px-3 py-3 text-left text-[10px] font-bold uppercase tracking-wider text-[#5d6665]">
                         Status
@@ -1201,18 +1227,7 @@ export default function QuizTakersClient() {
                             </div>
                           </td>
                           <td className="px-3 py-3">
-                            <span
-                              className={`rounded-full px-2 py-1 text-[10px] font-bold ${
-                                taker.accountType === "premium"
-                                  ? "bg-[#fff0df] text-[#ad6511]"
-                                  : "bg-gray-100 text-gray-700"
-                              }`}
-                            >
-                              {taker.accountType}
-                            </span>
-                            <button type="button" onClick={() => void handleSetAccountType(taker._id, taker.accountType === "premium" ? "regular" : "premium")} className="ml-2 rounded-md bg-[#fff0df] px-2 py-1 text-[10px] font-bold text-[#8a4e08] hover:bg-[#ffe3bc]">
-                              {taker.accountType === "premium" ? "Downgrade to regular" : "Upgrade to premium"}
-                            </button>
+                            <PlanSummary student={taker} onManage={() => setEditingStudent(taker)} />
                           </td>
                           <td className="px-3 py-3">
                             <label className="relative inline-flex items-center cursor-pointer">
@@ -1352,18 +1367,7 @@ export default function QuizTakersClient() {
 
                           {/* Badges */}
                           <div className="flex flex-wrap gap-2 mb-3">
-                            <span
-                              className={`px-2 py-0.5 text-xs font-medium rounded-full ${
-                                taker.accountType === "premium"
-                                  ? "bg-purple-100 text-purple-700"
-                                  : "bg-gray-100 text-gray-700"
-                              }`}
-                            >
-                              {taker.accountType}
-                            </span>
-                            <button type="button" onClick={() => void handleSetAccountType(taker._id, taker.accountType === "premium" ? "regular" : "premium")} className="rounded-md bg-[#fff0df] px-2 py-1 text-xs font-semibold text-[#8a4e08]">
-                              {taker.accountType === "premium" ? "Downgrade to regular" : "Upgrade to premium"}
-                            </button>
+                            <PlanSummary student={taker} onManage={() => setEditingStudent(taker)} />
                             <label className="relative inline-flex items-center cursor-pointer">
                               <input
                                 type="checkbox"
@@ -1565,6 +1569,7 @@ export default function QuizTakersClient() {
       </main>
 
       {/* Add Quiz Taker Modal */}
+      {editingStudent && <StudentPlanEditor student={editingStudent} proMaxExpiresAt={proMaxExpiresAt} onSave={(payload) => saveStudentPlan(editingStudent._id, payload)} onClose={() => setEditingStudent(null)} />}
       {showAddModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -1576,6 +1581,8 @@ export default function QuizTakersClient() {
                     setShowAddModal(false);
                     setNewEmail("");
                     setNewName("");
+                    setNewPlan('legacy');
+                    setNewExpiry('');
                     setSelectedQuestionSets([]);
                     setError(null);
                   }}
@@ -1621,6 +1628,7 @@ export default function QuizTakersClient() {
                 />
               </div>
 
+              <PlanFields choice={newPlan} date={newExpiry} onChoice={setNewPlan} onDate={setNewExpiry} proMaxExpiresAt={proMaxExpiresAt} disabled={isSubmitting} allowRegular={false} />
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Subject Combination * (Select exactly 4)
@@ -1669,6 +1677,8 @@ export default function QuizTakersClient() {
                   setShowAddModal(false);
                   setNewEmail("");
                   setNewName("");
+                  setNewPlan('legacy');
+                  setNewExpiry('');
                   setSelectedQuestionSets([]);
                   setError(null);
                 }}
@@ -1707,8 +1717,7 @@ export default function QuizTakersClient() {
             </div>
 
             <p className="text-sm text-gray-600 mb-4">
-              Upload a CSV or Excel file with email addresses. The file should
-              have an &quot;email&quot; column.
+              Upload the CSV or Excel template. Use subscriptionLevel (lite, pro, or pro-max) and subscriptionExpiresAt (ISO date/time) to record a paid plan. Blank plan fields keep a premium account without a recorded tier.
             </p>
 
             <input

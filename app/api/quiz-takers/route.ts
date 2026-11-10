@@ -40,6 +40,7 @@ function normalizeQuizTaker(value: unknown) {
 export async function GET() {
   const cookieStore = await cookies();
   const token = cookieStore.get("auth-token")?.value;
+  if (!token) return NextResponse.json({ success: false, message: 'Unauthorized', quizTakers: [] }, { status: 401 });
   try {
     const response = await fetch(`${BACKEND_URL}/admin/quiztakers?limit=1000`, {
       headers: {
@@ -62,6 +63,7 @@ export async function GET() {
       total: data.total,
       page: data.page,
       pages: data.pages,
+      subscriptionOptions: data.subscriptionOptions,
     });
   } catch (error) {
     console.error("Error fetching quiz takers:", error);

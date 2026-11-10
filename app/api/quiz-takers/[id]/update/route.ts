@@ -18,8 +18,11 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     }
 
     const body = await request.json();
-    const { isActive, accountType } : { isActive?: boolean; accountType?: 'premium' | 'regular' } = body;
-    if (isActive === undefined && accountType === undefined) {
+    const { isActive, accountType, subscriptionLevel, subscriptionExpiresAt } = body;
+    if (isActive !== undefined && typeof isActive !== 'boolean') {
+      return NextResponse.json({ success: false, message: 'Invalid account status' }, { status: 400 });
+    }
+    if (isActive === undefined && accountType === undefined && subscriptionLevel === undefined && subscriptionExpiresAt === undefined) {
       return NextResponse.json({ success: false, message: 'No valid update provided' }, { status: 400 });
     }
     if (accountType !== undefined && accountType !== 'premium' && accountType !== 'regular') {
@@ -38,6 +41,8 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       body: JSON.stringify({
         ...(isActive !== undefined && { isActive }),
         ...(accountType !== undefined && { accountType }),
+        ...(subscriptionLevel !== undefined && { subscriptionLevel }),
+        ...(subscriptionExpiresAt !== undefined && { subscriptionExpiresAt }),
       }),
     });
 
@@ -45,7 +50,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
 
     if (!response.ok) {
       return NextResponse.json(
-        { success: false, message: data.message || 'Failed to create quiz taker' },
+        { success: false, message: data.message || 'Failed to update student' },
         { status: response.status }
       );
     }

@@ -17,7 +17,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { email, name, questionSetCombination } = body;
+    const { email, name, questionSetCombination, subscriptionLevel, subscriptionExpiresAt } = body;
 
     // Validation
     if (typeof email !== 'string' || !email.trim()) {
@@ -48,6 +48,8 @@ export async function POST(request: NextRequest) {
         name: typeof name === 'string' ? name.trim() || undefined : undefined,
         accountType: 'premium',
         questionSetIds: questionSetCombination,
+        ...(subscriptionLevel !== undefined && { subscriptionLevel }),
+        ...(subscriptionExpiresAt !== undefined && { subscriptionExpiresAt }),
       }),
     });
 
