@@ -1,6 +1,7 @@
 'use client';
 
 import Link from "next/link";
+import { useState } from "react";
 import { usePathname } from "next/navigation";
 import BrandLogo from "../BrandLogo";
 import {
@@ -14,6 +15,7 @@ import {
   KeyRound,
   Settings,
   LogOut,
+  Loader2,
   PanelsTopLeft,
 } from "lucide-react";
 
@@ -33,6 +35,26 @@ const NAV_ITEMS = [
 
 export default function DashboardSidebar({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [logoutError, setLogoutError] = useState("");
+
+  const handleLogout = async () => {
+    if (isLoggingOut) return;
+
+    setIsLoggingOut(true);
+    setLogoutError("");
+
+    try {
+      const response = await fetch("/api/auth/set-cookie", { method: "DELETE" });
+      if (!response.ok) throw new Error("Logout failed");
+
+      // Reload the document so the authenticated router cache is discarded.
+      window.location.replace("/login");
+    } catch {
+      setIsLoggingOut(false);
+      setLogoutError("Unable to log out. Please try again.");
+    }
+  };
 
   return (
     <aside className="flex h-screen w-[272px] max-w-full shrink-0 flex-col overflow-y-auto bg-[#0d2818] text-white">
@@ -98,10 +120,19 @@ export default function DashboardSidebar({ onNavigate }: { onNavigate?: () => vo
         </div>
       </div> */}
 
-      <button className="flex items-center gap-2 px-6 pb-6 text-sm text-white/70 hover:text-white transition-colors">
-        <LogOut className="w-4 h-4" />
-        Log Out
-      </button>
+      <div className="px-6 pb-6 pt-4">
+        <button
+          type="button"
+          onClick={handleLogout}
+          disabled={isLoggingOut}
+          aria-busy={isLoggingOut}
+          className="flex items-center gap-2 text-sm text-white/70 transition-colors hover:text-white disabled:cursor-wait disabled:opacity-60"
+        >
+          {isLoggingOut ? <Loader2 className="h-4 w-4 animate-spin" /> : <LogOut className="h-4 w-4" />}
+          {isLoggingOut ? "Logging out…" : "Log Out"}
+        </button>
+        {logoutError && <p role="alert" className="mt-2 text-xs text-orange-200">{logoutError}</p>}
+      </div>
     </aside>
   );
 }

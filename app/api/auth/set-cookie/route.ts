@@ -35,3 +35,18 @@ export async function POST(request: Request) {
         );
     }
 }
+
+export async function DELETE() {
+    try {
+        const cookieStore = await cookies();
+        cookieStore.delete('auth-token');
+        cookieStore.delete('admin');
+
+        return NextResponse.json({ success: true });
+    } catch {
+        return NextResponse.json(
+            { success: false, message: 'Unable to end your session. Please try again.' },
+            { status: 500 }
+        );
+    }
+}
