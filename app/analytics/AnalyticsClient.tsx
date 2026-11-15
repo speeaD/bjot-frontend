@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import DashboardContentLoading from '../componets/dashboard/DashboardContentLoading';
 import {
   Area,
   AreaChart,
@@ -58,6 +59,7 @@ interface Props {
   quizzes: Quiz[];
   initialAnalytics?: unknown;
   initialQuizId?: string;
+  loading?: boolean;
 }
 const PALETTE = ["#d73b36", "#6f7d76", "#004b37", "#ff9423"];
 const time = (seconds: number) => {
@@ -84,6 +86,7 @@ export default function AnalyticsClient({
   submissions,
   quizzes,
   initialQuizId,
+  loading = false,
 }: Props) {
   const [range, setRange] = useState("30");
   const [quizId, setQuizId] = useState(initialQuizId || "all");
@@ -230,7 +233,7 @@ export default function AnalyticsClient({
     ? (analytics.completed.length / analytics.filtered.length) * 100
     : 0;
   return (
-    <main className="min-h-screen bg-[#f5f7f6] px-4 pb-10 pt-5 sm:px-6 lg:px-8">
+    <main aria-busy={loading} className="min-h-screen bg-[#f5f7f6] px-4 pb-10 pt-5 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-[1440px]">
         <header className="mb-4 flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
           <div>
@@ -245,7 +248,8 @@ export default function AnalyticsClient({
           </div>
           <button
             onClick={() => window.print()}
-            className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#004b37] px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-[#003b2c]"
+            disabled={loading}
+            className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#004b37] px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-[#003b2c] disabled:opacity-50"
           >
             <Download className="h-4 w-4" /> Export PDF report
           </button>
@@ -261,6 +265,7 @@ export default function AnalyticsClient({
                 <button
                   key={value}
                   onClick={() => setRange(value)}
+                  disabled={loading}
                   className={
                     "rounded-lg px-3 py-2 text-xs font-semibold " +
                     (range === value
@@ -275,6 +280,7 @@ export default function AnalyticsClient({
             <div className="h-5 w-px bg-slate-200" />
             <select
               value={quizId}
+              disabled={loading}
               onChange={(event) => setQuizId(event.target.value)}
               className="rounded-lg border border-slate-200 px-3 py-2 text-xs text-slate-600"
             >
@@ -287,11 +293,18 @@ export default function AnalyticsClient({
             </select>
             <span className="ml-auto flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[.12em] text-slate-500">
               <span className="h-1.5 w-1.5 rounded-full bg-[#ff9423]" />{" "}
-              Telemetry synced
+              {loading ? 'Loading analytics…' : 'Telemetry synced'}
             </span>
           </div>
         </section>
 
+        {loading ? <div className="space-y-4">
+          <p role="status" className="rounded-lg border border-[#dce7e1] bg-[#edf4ef] px-4 py-3 text-sm font-medium text-[#004b37]">
+            Loading analytics and reports… Your data will appear here shortly.
+          </p>
+          <DashboardContentLoading label="Loading analytics metrics" cards={5} />
+          <DashboardContentLoading label="Loading report charts" cards={2} />
+        </div> : <>
         <section className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
           <Metric
             icon={<TrendingUp />}
@@ -586,6 +599,7 @@ export default function AnalyticsClient({
             )}
           </div>
         </section>
+        </>}
       </div>
     </main>
   );

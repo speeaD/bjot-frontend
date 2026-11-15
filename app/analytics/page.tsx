@@ -1,6 +1,7 @@
 export const dynamic = 'force-dynamic';
 
 import AnalyticsClient from './AnalyticsClient';
+import { Suspense } from 'react';
 import { getAllQuizzes, getSubmissions } from '../lib/data';
 
 type RawQuiz = {
@@ -25,7 +26,15 @@ type RawSubmission = {
   submittedAt?: string;
 };
 
-export default async function AnalyticsPage({ searchParams }: { searchParams: Promise<{ quizId?: string }> }) {
+type PageProps = { searchParams: Promise<{ quizId?: string }> };
+
+export default function AnalyticsPage({ searchParams }: PageProps) {
+  return <Suspense fallback={<AnalyticsClient submissions={[]} quizzes={[]} loading />}>
+    <AnalyticsData searchParams={searchParams} />
+  </Suspense>;
+}
+
+async function AnalyticsData({ searchParams }: PageProps) {
   const [rawSubmissions, rawQuizzes] = await Promise.all([getSubmissions(), getAllQuizzes()]);
 
   const quizzes = (rawQuizzes as RawQuiz[]).map((quiz) => ({
