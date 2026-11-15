@@ -4,7 +4,7 @@
 import { useEffect, useMemo, useState } from "react";
 import DashboardTableLoading from "../componets/dashboard/DashboardTableLoading";
 import DashboardContentLoading from "../componets/dashboard/DashboardContentLoading";
-import { isLeaderboardSubmission, leaderboardSubjectKey, leaderboardSubjects, normalizeAdminQuizzes, type AdminSubmission } from '../lib/admin-submissions';
+import { formatExamTime, isLeaderboardSubmission, leaderboardSubjectKey, leaderboardSubjects, normalizeAdminQuizzes, type AdminSubmission } from '../lib/admin-submissions';
 import {
   Award,
   ChevronUp,
@@ -28,6 +28,8 @@ type Entry = {
   averageScore: number;
   totalQuizzes: number;
   totalPoints: number;
+  averageTimeTaken?: number;
+  examTimes: { id: string; title: string; seconds?: number }[];
   subject?: { best: number; average: number; attempts: number };
 };
 
@@ -136,6 +138,7 @@ export default function LeaderboardClient() {
           count: 0,
           points: 0,
           subjects: [],
+          examTimes: [],
         });
       const candidate = people.get(taker._id);
       candidate.total += item.percentage || 0;
@@ -148,9 +151,14 @@ export default function LeaderboardClient() {
               (set) => leaderboardSubjectKey(set, item.quizId._id) === subject,
             );
       if (data) candidate.subjects.push(data);
+      if (subject === null || data) candidate.examTimes.push({
+        id: item._id, title: item.quizId.settings.title, seconds: item.timeTaken,
+      });
     });
     return Array.from(people.values())
       .map((candidate): Omit<Entry, "rank"> => {
+        const times: number[] = candidate.examTimes.flatMap((exam: Entry['examTimes'][number]) =>
+          exam.seconds === undefined ? [] : [exam.seconds]);
         const item: Omit<Entry, "rank"> = {
           id: candidate.id,
           source: candidate.source,
@@ -159,6 +167,8 @@ export default function LeaderboardClient() {
           averageScore: candidate.total / candidate.count,
           totalQuizzes: candidate.count,
           totalPoints: candidate.points,
+          averageTimeTaken: times.length ? times.reduce((sum, seconds) => sum + seconds, 0) / times.length : undefined,
+          examTimes: candidate.examTimes,
         };
         if (subject !== null && candidate.subjects.length)
           item.subject = {
@@ -353,13 +363,14 @@ export default function LeaderboardClient() {
           </div>
           {loading ? <DashboardTableLoading label="Loading leaderboard standings" /> : <>
           <div className="overflow-x-auto">
-            <table className="min-w-[760px] w-full text-left">
+            <table className="min-w-[900px] w-full text-left">
               <thead className="bg-[#f4f6f5] text-[10px] font-bold uppercase tracking-[.1em] text-slate-500">
                 <tr>
                   <th className="px-5 py-3">Rank</th>
                   <th className="px-4 py-3">Candidate / student</th>
                   <th className="px-4 py-3">Average score</th>
                   <th className="px-4 py-3">Exams taken</th>
+                  <th className="px-4 py-3">Time taken</th>
                   <th className="px-4 py-3">Total points</th>
                   <th className="px-5 py-3 text-right">Status</th>
                 </tr>
@@ -404,6 +415,21 @@ export default function LeaderboardClient() {
                         {subject !== null
                           ? item.subject?.attempts || 0
                           : item.totalQuizzes}
+                      </td>
+                      <td className="px-4 py-3.5 text-sm text-slate-700">
+                        <p className="whitespace-nowrap font-semibold">{formatExamTime(item.averageTimeTaken)}</p>
+                        {item.examTimes.length > 1 && <>
+                          <p className="mt-0.5 text-[10px] text-slate-500">Average exam time</p>
+                          <details className="mt-1 text-xs">
+                            <summary className="cursor-pointer font-medium text-[#004b37]">Exam times</summary>
+                            <ul className="mt-2 space-y-2">
+                              {item.examTimes.map((exam) => <li key={exam.id}>
+                                <span className="block text-slate-500">{exam.title}</span>
+                                <span className="whitespace-nowrap font-medium">{formatExamTime(exam.seconds)}</span>
+                              </li>)}
+                            </ul>
+                          </details>
+                        </>}
                       </td>
                       <td className="px-4 py-3.5 text-sm font-bold text-[#a23d00]">
                         {subject !== null
@@ -520,6 +546,9 @@ function Podium({
                 {subject !== null
                   ? `${item.subject?.best || 0} pts`
                   : `${item.averageScore.toFixed(1)}%`}
+              </p>
+              <p className="mt-1 text-[10px] text-slate-500">
+                {item.examTimes.length > 1 ? 'Avg. exam time' : 'Exam time'}: {formatExamTime(item.averageTimeTaken)}
               </p>
             </div>
             <div

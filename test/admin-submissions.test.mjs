@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { AdminSubmissionsError, fetchAllAdminSubmissions, isLeaderboardSubmission, leaderboardSubjectKey, leaderboardSubjects, normalizeAdminQuizzes, normalizeAdminSubmission } from '../app/lib/admin-submissions.ts';
+import { AdminSubmissionsError, fetchAllAdminSubmissions, formatExamTime, isLeaderboardSubmission, leaderboardSubjectKey, leaderboardSubjects, normalizeAdminQuizzes, normalizeAdminSubmission } from '../app/lib/admin-submissions.ts';
 
 const assigned = { id: 'submission-1', quizId: 'quiz-1', quiz: { id: 'quiz-1', title: 'Assigned mock' },
   quizTakerId: 'student-1', quizTaker: { id: 'student-1', name: 'Student', accessCode: 'ABC123456' },
@@ -32,6 +32,17 @@ test('public candidates have a stable identity and do not require an access code
   assert.equal(row.quizTakerId._id, 'public:guest@example.com');
   assert.equal(row.quizTakerId.accessCode, '');
   assert.equal(isLeaderboardSubmission(row), true);
+});
+
+test('assigned and public exam times retain seconds and distinguish missing durations from a completed zero-second attempt', () => {
+  for (const source of [assigned, publicAttempt]) {
+    assert.equal(formatExamTime(normalizeAdminSubmission({ ...source, timeTaken: 3723 }).timeTaken), '1h 2m 3s');
+    assert.equal(formatExamTime(normalizeAdminSubmission({ ...source, timeTaken: '125' }).timeTaken), '2m 5s');
+    assert.equal(formatExamTime(normalizeAdminSubmission({ ...source, timeTaken: 0 }).timeTaken), '0s');
+    for (const timeTaken of [undefined, null, '', ' ', -1, Infinity, 'invalid']) {
+      assert.equal(formatExamTime(normalizeAdminSubmission({ ...source, timeTaken }).timeTaken), 'Unavailable');
+    }
+  }
 });
 
 test('public replays and unfinished assigned attempts cannot inflate rankings', () => {

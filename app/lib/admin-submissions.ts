@@ -19,18 +19,21 @@ export interface AdminSubmission {
   questionSetSubmissions?: SubjectScore[];
 }
 
-type RawSubmission = Omit<Partial<AdminSubmission>, 'quizId' | 'quizTakerId' | 'percentage'> & {
+type RawSubmission = Omit<Partial<AdminSubmission>, 'quizId' | 'quizTakerId' | 'percentage' | 'timeTaken'> & {
   id?: string;
   quizId?: string | QuizReference;
   quiz?: QuizReference;
   quizTakerId?: string | StudentReference;
   quizTaker?: StudentReference;
   percentage?: number | string;
+  timeTaken?: number | string | null;
 };
 
 export function normalizeAdminSubmission(value: RawSubmission): AdminSubmission {
   const quiz = value.quiz || (typeof value.quizId === 'object' ? value.quizId : undefined);
   const student = value.quizTaker || (typeof value.quizTakerId === 'object' ? value.quizTakerId : undefined);
+  const timeTaken = value.timeTaken === null || value.timeTaken === undefined || String(value.timeTaken).trim() === ''
+    ? undefined : Number(value.timeTaken);
   return {
     ...value,
     _id: value._id || value.id || '',
@@ -45,9 +48,19 @@ export function normalizeAdminSubmission(value: RawSubmission): AdminSubmission 
     totalPoints: Number(value.totalPoints) || 0,
     percentage: Number(value.percentage) || 0,
     submittedAt: value.submittedAt || '',
+    timeTaken: timeTaken !== undefined && Number.isFinite(timeTaken) && timeTaken >= 0 ? timeTaken : undefined,
     questionSetSubmissions: value.questionSetSubmissions?.map((set) => ({ ...set,
       score: Number(set.score) || 0, percentage: Number(set.percentage) || 0 })),
   };
+}
+
+export function formatExamTime(seconds: number | undefined): string {
+  if (seconds === undefined) return 'Unavailable';
+  const total = Math.round(seconds);
+  const hours = Math.floor(total / 3600);
+  const minutes = Math.floor((total % 3600) / 60);
+  return hours ? `${hours}h ${minutes}m ${total % 60}s`
+    : minutes ? `${minutes}m ${total % 60}s` : `${total}s`;
 }
 
 export function normalizeAdminQuizzes(values: QuizReference[]) {
