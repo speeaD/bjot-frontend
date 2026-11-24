@@ -23,6 +23,7 @@ const NAV_ITEMS = [
   { href: "/", label: "Exam Feed / Exams", icon: FileText },
   { href: "/question-set", label: "Question Bank & Subjects", icon: BookOpen },
   { href: "/jamb-past-questions", label: "JAMB Past Questions", icon: BookOpen },
+  { href: "/textbooks", label: "Textbooks", icon: BookOpen },
   { href: "/question-organizer", label: "Question Organizer", icon: ListChecks },
   { href: "/cms", label: "Landing Page & CMS", icon: PanelsTopLeft },
   { href: "/quiz-takers", label: "Students & Candidates", icon: Users },
